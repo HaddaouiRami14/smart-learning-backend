@@ -29,6 +29,7 @@ import com.example.SmartLearning.Repository.UserRepository;
 import com.example.SmartLearning.model.LoginHistory;
 import com.example.SmartLearning.security.JwtAuthenticationFilter;
 import com.example.SmartLearning.security.JwtUtil;
+import com.example.SmartLearning.service.StreakService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -52,6 +53,9 @@ public class SecurityConfig {
     @Autowired 
     private LoginHistoryRepository loginHistoryRepository;
 
+    @Autowired 
+    private StreakService streakService; 
+
 
     @Bean
     public OncePerRequestFilter securityHeadersFilter() {
@@ -62,7 +66,6 @@ public class SecurityConfig {
                                           FilterChain filterChain) 
                     throws ServletException, IOException {
                 
-                // Set headers to allow Google OAuth popups
                 response.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
                 response.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
                 
@@ -100,14 +103,14 @@ public class SecurityConfig {
                         }
                     }
 
-                        // ✅ Enregistre le LoginHistory à chaque login Google
                     LoginHistory loginHistory = LoginHistory.builder()
                             .user(user)
                             .loginTime(LocalDateTime.now())
-                            .ipAddress(request.getRemoteAddr()) // ✅ IP réelle
-                            .userAgent(request.getHeader("User-Agent")) // ✅ User-Agent réel
+                            .ipAddress(request.getRemoteAddr()) 
+                            .userAgent(request.getHeader("User-Agent")) 
                             .build();
                     loginHistoryRepository.save(loginHistory);
+                    streakService.checkAndLogStreakMilestone(user);
 
 
                         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
@@ -150,7 +153,6 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
             )
 
-            // Configuration OAuth2 Login
             .oauth2Login(oauth2 -> oauth2
                  
                 .successHandler(oauth2SuccessHandler())
@@ -158,7 +160,6 @@ public class SecurityConfig {
 
             
 
-         // Add security headers filter first
         http.addFilterBefore(securityHeadersFilter(), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

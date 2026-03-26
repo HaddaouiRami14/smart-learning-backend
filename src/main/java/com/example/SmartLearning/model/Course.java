@@ -3,7 +3,9 @@ package com.example.SmartLearning.model;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.example.SmartLearning.Enum.Category;
 import com.example.SmartLearning.Enum.Level;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -37,8 +39,9 @@ public class Course {
  @Column(columnDefinition = "TEXT")
  private String description;
  
+ @Enumerated(EnumType.STRING)
  @Column(nullable = false)
- private String category;
+ private Category category;
  
  @Column(nullable = false)
  private Double price;
@@ -46,6 +49,10 @@ public class Course {
 @Enumerated(EnumType.STRING)
 @Column(nullable = false)
 private Level level = Level.BEGINNER;
+
+@OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+@JsonIgnore // IMPORTANT : Empêche la boucle infinie (Course -> Inscription -> Course) lors de la sérialisation JSON
+private List<Inscription> inscriptions; 
  
  @ManyToOne(fetch = FetchType.LAZY)
  @JoinColumn(name = "formateur_id", nullable = false)

@@ -48,7 +48,7 @@ public class PasswordResetService {
             PasswordResetToken resetToken = new PasswordResetToken();
             resetToken.setToken(token);
             resetToken.setUser(user);
-            resetToken.setExpiryDate(LocalDateTime.now().plusHours(1)); // 1 hour expiry
+            resetToken.setExpiryDate(LocalDateTime.now().plusHours(1)); 
             resetToken.setUsed(false);
             
             tokenRepository.save(resetToken);
@@ -85,7 +85,6 @@ public class PasswordResetService {
                 return new PasswordResetResponse(false, "This reset token has already been used.");
             }
             
-            // Update password
             User user = resetToken.getUser();
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
             userRepository.save(user);

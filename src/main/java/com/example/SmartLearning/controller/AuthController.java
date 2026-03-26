@@ -47,12 +47,10 @@ public class AuthController {
         return ResponseEntity.ok(response);
 
     } catch (RuntimeException e) {
-        // ✅ Extraire le vrai message (enlever le préfixe ajouté par GoogleAuthService)
         String message = e.getMessage() != null
                 ? e.getMessage().replace("Google authentication failed: ", "")
                 : "Authentication failed";
 
-        // ✅ 403 si banni, 401 pour les autres erreurs
         boolean isBanned = message.contains("banned");
         return ResponseEntity
                 .status(isBanned ? HttpStatus.FORBIDDEN : HttpStatus.UNAUTHORIZED)

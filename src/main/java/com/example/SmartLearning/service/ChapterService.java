@@ -35,7 +35,6 @@ public class ChapterService {
     private final CourseRepository courseRepository;
     
     
-    // Configuration des limites
     private static final long MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
     private static final long MEMORY_THRESHOLD = 100 * 1024 * 1024; // 100MB pour la mémoire
     
@@ -108,7 +107,6 @@ public class ChapterService {
         Chapter chapter = chapterRepository.findByIdAndCourseId(chapterId, courseId)
                 .orElseThrow(() -> new RuntimeException("Chapter not found"));
         
-        //chapterRepository.delete(chapter);
         deleteChapterWithDependencies(chapter);
     }
 
@@ -220,7 +218,6 @@ public class ChapterService {
    
     
     public List<ChapterResourceResponse> getChapterResources(Long courseId, Long chapterId) {
-        // Vérifier que le chapitre existe
         chapterRepository.findByIdAndCourseId(chapterId, courseId)
                 .orElseThrow(() -> new RuntimeException("Chapter not found"));
         
@@ -236,7 +233,6 @@ public class ChapterService {
         ChapterResource resource = resourceRepository.findByIdAndChapterId(resourceId, chapterId)
                 .orElseThrow(() -> new RuntimeException("Resource not found"));
         
-        // Vérifier que la ressource appartient au bon cours
         if (!resource.getChapter().getCourse().getId().equals(courseId)) {
             throw new RuntimeException("Resource does not belong to this course");
         }
@@ -250,7 +246,6 @@ public class ChapterService {
         ChapterResource resource = resourceRepository.findByIdAndChapterId(resourceId, chapterId)
                 .orElseThrow(() -> new RuntimeException("Resource not found"));
         
-        // Vérifier que la ressource appartient au bon cours
         if (!resource.getChapter().getCourse().getId().equals(courseId)) {
             throw new RuntimeException("Resource does not belong to this course");
         }

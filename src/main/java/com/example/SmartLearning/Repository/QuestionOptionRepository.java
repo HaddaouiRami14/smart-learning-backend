@@ -11,10 +11,7 @@ import jakarta.transaction.Transactional;
 
 @Repository
 public interface QuestionOptionRepository extends JpaRepository<QuestionOption, Long> {
-    //void deleteByQuestionId(Long questionId);
-   /*@Modifying
-    @Query(value = "DELETE FROM question_options WHERE question_id = :questionId", nativeQuery = true)
-    void deleteByQuestionId(@Param("questionId") Long questionId); */ 
+    
     void deleteByQuestionId(Long questionId);
 @Modifying
 @Transactional

@@ -83,9 +83,7 @@ public class EmailService {
         }
     }
     
-    /**
-     * Envoie un email de bienvenue simple (texte brut)
-     */
+    
     public void sendWelcomeEmailSimple(User user) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -114,7 +112,6 @@ public class EmailService {
             
         } catch (Exception e) {
             System.err.println("Erreur lors de l'envoi de l'email : " + e.getMessage());
-            // Ne pas bloquer l'inscription si l'email échoue
         }
     }
     
@@ -188,14 +185,13 @@ public class EmailService {
             
         } catch (MessagingException e) {
             System.err.println("Erreur lors de l'envoi de l'email HTML : " + e.getMessage());
-            // Fallback vers email simple
             sendWelcomeEmailSimple(user);
         }
     }
   
    private String getDashboardUrl(User user) {
         Role role = user.getRole();
-        String path = (role == Role.FORMATEUR) ? "/trainer" : "/dashboard"; // ✅ Comparaison d'enum correcte
+        String path = (role == Role.FORMATEUR) ? "/trainer" : "/dashboard"; 
         return frontendUrl + path ;
     }
 

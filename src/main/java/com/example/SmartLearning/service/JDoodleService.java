@@ -39,7 +39,6 @@ public class JDoodleService {
 
             ResponseEntity<String> response = restTemplate.postForEntity(JDOODLE_API_URL, request, String.class);
 
-            // Log pour debug — peut être supprimé en production
             System.out.println("JDoodle raw response: " + response.getBody());
 
             return response.getBody();
@@ -56,7 +55,6 @@ public class JDoodleService {
         boolean isExecutionSuccess = result.optBoolean("isExecutionSuccess", false);
         boolean isCompiled = result.optBoolean("isCompiled", true);
 
-        // cpuTime peut être null dans la réponse JDoodle → parser en String d'abord
         double cpuTime = 0.0;
         try {
             String cpuTimeStr = result.optString("cpuTime", "0");

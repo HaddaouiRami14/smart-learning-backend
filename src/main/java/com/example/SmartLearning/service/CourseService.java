@@ -21,6 +21,7 @@ public class CourseService {
 
     @Autowired
     private FormateurService formateurService;
+    
 
     public CourseDTO createCourse(Long formateurId, CourseDTO courseDTO) {
         Formateur formateur = formateurService.getFormateurById(formateurId);
@@ -63,9 +64,6 @@ public class CourseService {
         Course course = courseRepository.findByIdAndFormateur(courseId, formateur)
                 .orElseThrow(() -> new SecurityException("You don't have permission to update this course"));
 
-        if (course.getIsActive()) {
-            throw new IllegalArgumentException("Cannot modify an active course. Deactivate it first.");
-        }
 
         course.setTitle(courseDTO.getTitle());
         course.setDescription(courseDTO.getDescription());
@@ -92,7 +90,7 @@ public class CourseService {
         return mapToDTO(course);
     }
 
-    // ============ ADMIN OPERATIONS ============
+    // ADMIN OPERATIONS 
 
     public List<CourseDTO> getAllCoursesForAdmin() {
         return courseRepository.findAllByOrderByCreatedAtDesc()
@@ -168,4 +166,6 @@ public class CourseService {
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
+
+    
 }

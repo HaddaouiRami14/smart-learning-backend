@@ -82,7 +82,6 @@ public class JwtUtil {
 
     }
 
-    // Méthodes utilitaires pour le contrôleur
     public String getUsernameFromToken(String token) {
         return extractUsername(token);
     }

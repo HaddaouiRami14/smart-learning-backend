@@ -21,10 +21,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByQuizOrderByOrderIndexAsc(@Param("quiz") Quiz quiz);
 
     List<Question> findByQuizId(Long quizId);
-    /*@Modifying
-    @Query(value = "DELETE FROM questions WHERE quiz_id = :quizId", nativeQuery = true)
-    void deleteByQuizId(@Param("quizId") Long quizId);*/
-    //void deleteByQuizId(Long quizId);
+    
 @Modifying
 @Transactional
 @Query(value = "DELETE FROM questions WHERE quiz_id = :quizId", nativeQuery = true)

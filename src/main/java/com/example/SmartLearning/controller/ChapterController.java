@@ -36,7 +36,6 @@ public class ChapterController {
     
     private final ChapterService chapterService;
     
-    // ===== CHAPITRE ENDPOINTS =====
     
     
     @GetMapping
@@ -87,7 +86,6 @@ public class ChapterController {
         return ResponseEntity.noContent().build();
     }
     
-    // ===== RESSOURCE ENDPOINTS =====
     
     
     @GetMapping("/{chapterId}/resources")
@@ -108,7 +106,6 @@ public class ChapterController {
             Authentication authentication
     ) {
         try {
-            // ✅ Validation supplémentaire du contrôleur
             if (file == null || file.isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(createErrorResponse("Le fichier est vide"));
@@ -180,7 +177,6 @@ public class ChapterController {
         return ResponseEntity.noContent().build();
     }
     
-    // ===== ERROR RESPONSE HELPER =====
     
     
     
