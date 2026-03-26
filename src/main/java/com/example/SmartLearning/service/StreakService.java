@@ -1,4 +1,7 @@
 package com.example.SmartLearning.service;
+import com.example.SmartLearning.Enum.ActivityType;
+import com.example.SmartLearning.Repository.ActivityLogRepository;
+import com.example.SmartLearning.Repository.ApprenantRepository;
 import com.example.SmartLearning.Repository.LoginHistoryRepository;
 import com.example.SmartLearning.model.User;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,9 @@ import java.util.stream.Collectors;
 public class StreakService {
 
     private final LoginHistoryRepository loginHistoryRepository;
+    private final ActivityService        activityService;      
+    private final ApprenantRepository    apprenantRepository;  
+    private final ActivityLogRepository  activityLogRepository;  
     private static final ZoneId ZONE = ZoneId.of("Africa/Tunis");
 
     public int calculateStreak(User user) {
@@ -52,6 +58,22 @@ public class StreakService {
             }
         }
         return streak;
+    }
+
+    
+    public void checkAndLogStreakMilestone(User user) {
+        int streak = calculateStreak(user);
+
+        if (streak <= 0) return;
+        apprenantRepository.findByUser_Id(user.getId()).ifPresent(apprenant -> {
+
+            
+            boolean alreadyLoggedToday = activityLogRepository.existsTodayByType(apprenant.getId(), ActivityType.STREAK_MILESTONE);
+
+            if (!alreadyLoggedToday) {
+                activityService.logStreakMilestone(apprenant, streak);
+            }
+        });
     }
 
     public boolean[] getLast7DaysActivity(User user) {

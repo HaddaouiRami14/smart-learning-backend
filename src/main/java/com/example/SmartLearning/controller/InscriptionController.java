@@ -26,7 +26,6 @@ public class InscriptionController {
         return ResponseEntity.ok(inscriptionService.enroll(userId, courseId));
     }
 
-    // Update raw progression percentage
     @PutMapping("/{userId}/progress/{courseId}")
     public ResponseEntity<InscriptionDTO> updateProgress(
             @PathVariable Long userId,
@@ -36,8 +35,7 @@ public class InscriptionController {
         return ResponseEntity.ok(inscriptionService.updateProgress(userId, courseId, progression));
     }
 
-    // Mark a quiz or exercise as completed
-    // Body: { "item": "chapterId:Q" } for quiz, { "item": "chapterId:E" } for exercise
+    
     @PostMapping("/{userId}/complete/{courseId}")
     public ResponseEntity<ProgressDetailDTO> markCompleted(
             @PathVariable Long userId,
@@ -47,14 +45,12 @@ public class InscriptionController {
         return ResponseEntity.ok(inscriptionService.markItemCompleted(userId, courseId, item));
     }
 
-    // Get all enrollments for a learner
     @GetMapping("/{userId}")
     public ResponseEntity<List<InscriptionDTO>> getEnrollments(
             @PathVariable Long userId) {
         return ResponseEntity.ok(inscriptionService.getLearnerEnrollments(userId));
     }
 
-    // Get single enrollment (to resume progress)
     @GetMapping("/{userId}/course/{courseId}")
     public ResponseEntity<InscriptionDTO> getEnrollment(
             @PathVariable Long userId,
@@ -64,7 +60,6 @@ public class InscriptionController {
         return ResponseEntity.ok(dto);
     }
 
-    // Get detailed progress — which chapters have quiz/exercise passed
     @GetMapping("/{userId}/progress/{courseId}")
     public ResponseEntity<ProgressDetailDTO> getProgressDetail(
             @PathVariable Long userId,
@@ -74,7 +69,6 @@ public class InscriptionController {
         return ResponseEntity.ok(progress);
     }
 
-    // Check if enrolled
     @GetMapping("/{userId}/enrolled/{courseId}")
     public ResponseEntity<Map<String, Boolean>> isEnrolled(
             @PathVariable Long userId,

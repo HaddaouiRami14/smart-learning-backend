@@ -17,9 +17,7 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     Optional<Quiz> findByChapter(Chapter chapter);
     Optional<Quiz> findByChapterId(Long chapterId);
 
-/*@Modifying
-@Query(value = "DELETE FROM quizzes WHERE id = :id", nativeQuery = true)
-void deleteQuizDirectly(@Param("id") Long id);*/
+
 @Modifying
 @Transactional
 @Query(value = "DELETE FROM quizzes WHERE id = :quizId", nativeQuery = true)

@@ -45,7 +45,6 @@ public class UserManagementController {
             userRepository.save(user);
             bannedEmailRepository.deleteByEmail(user.getEmail());
         }
-        // ✅ Cas 2 : Désync → isBanned=false mais email encore dans banned_emails
         if (!user.isBanned() && bannedEmailRepository.existsByEmail(user.getEmail())) {
             bannedEmailRepository.deleteByEmail(user.getEmail());
         }
@@ -64,11 +63,9 @@ public class UserManagementController {
         }).toList();
     }
 
-    // ✅ NEW: Ban user endpoint
     @PostMapping("/{userId}/ban")
     public ResponseEntity<?> banUser(@PathVariable Long userId , @RequestBody(required = false) BanRequest request) {
         try {
-            // Prevent banning admin users
             User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
             

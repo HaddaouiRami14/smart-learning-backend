@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import com.example.SmartLearning.DTO.ChapterResourceResponse;
 import com.example.SmartLearning.DTO.ChapterResponse;
 import com.example.SmartLearning.DTO.CourseDTO;
+import com.example.SmartLearning.DTO.EnrolledCourseDTO;
 import com.example.SmartLearning.DTO.ExerciseResponse;
 import com.example.SmartLearning.DTO.ExerciseResultResponse;
 import com.example.SmartLearning.DTO.QuizResponse;
@@ -20,13 +21,17 @@ import com.example.SmartLearning.DTO.QuizResultResponse;
 import com.example.SmartLearning.DTO.SubmitExerciseRequest;
 import com.example.SmartLearning.DTO.SubmitQuizRequest;
 import com.example.SmartLearning.model.ChapterResource;
+import com.example.SmartLearning.security.JwtUserPrincipal;
 import com.example.SmartLearning.service.CourseService;
 import com.example.SmartLearning.service.ChapterService;
 import com.example.SmartLearning.service.QuizService;
+import com.example.SmartLearning.service.SkillsProgressService;
+
 import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 
 import com.example.SmartLearning.service.ExerciseService;
+import com.example.SmartLearning.service.InscriptionService;
 
 @RestController
 @RequestMapping("/api/learner/courses")
@@ -45,20 +50,22 @@ public class LearnerCourseController {
     @Autowired
     private ExerciseService exerciseService;
 
-    // ── GET /api/learner/courses/{courseId} ──────────────────────────────────
+    @Autowired
+    private SkillsProgressService skillsProgressService;
+
+    @Autowired 
+    private InscriptionService inscriptionService;
+
     @GetMapping("/{courseId}")
     public ResponseEntity<CourseDTO> getCourse(@PathVariable Long courseId) {
-        // reuse the existing getCourseById — no ownership check needed for learners
         return ResponseEntity.ok(courseService.getCourseById(courseId));
     }
 
-    // ── GET /api/learner/courses/{courseId}/chapters ─────────────────────────
     @GetMapping("/{courseId}/chapters")
     public ResponseEntity<List<ChapterResponse>> getChapters(@PathVariable Long courseId) {
         return ResponseEntity.ok(chapterService.getChaptersByCourse(courseId));
     }
 
-    // ── GET /api/learner/courses/{courseId}/chapters/{chapterId}/quiz ─────────
     @GetMapping("/{courseId}/chapters/{chapterId}/quiz")
     public ResponseEntity<QuizResponse> getQuiz(
             @PathVariable Long courseId,
@@ -72,19 +79,26 @@ public class LearnerCourseController {
         return ResponseEntity.ok(quiz);
     }
 
-    // ── POST /api/learner/courses/{courseId}/chapters/{chapterId}/quiz/{quizId}/submit
     @PostMapping("/{courseId}/chapters/{chapterId}/quiz/{quizId}/submit")
     public ResponseEntity<QuizResultResponse> submitQuiz(
             @PathVariable Long courseId,
             @PathVariable Long chapterId,
             @PathVariable Long quizId,
-            @Valid @RequestBody SubmitQuizRequest request
+            @Valid @RequestBody SubmitQuizRequest request,
+             Authentication authentication  
     ) {
         QuizResultResponse result = quizService.submitQuiz(quizId, request);
+        if (result.getPassed()) {
+            JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
+            inscriptionService.markItemCompleted(
+                principal.getId(),
+                courseId,
+                chapterId + ":Q"
+            );
+        }
         return ResponseEntity.ok(result);
     }
 
-    // ── GET /api/learner/courses/{courseId}/chapters/{chapterId}/exercises ────
     @GetMapping("/{courseId}/chapters/{chapterId}/exercises")
     public ResponseEntity<List<ExerciseResponse>> getExercises(
             @PathVariable Long courseId,
@@ -96,7 +110,6 @@ public class LearnerCourseController {
         return ResponseEntity.ok(exercises);
     }
 
-    // ── POST /api/learner/courses/{courseId}/chapters/{chapterId}/exercises/{exerciseId}/submit
     @PostMapping("/{courseId}/chapters/{chapterId}/exercises/{exerciseId}/submit")
     public ResponseEntity<ExerciseResultResponse> submitExercise(
             @PathVariable Long courseId,
@@ -107,6 +120,14 @@ public class LearnerCourseController {
     ) {
         String userEmail = authentication.getName();
         ExerciseResultResponse result = exerciseService.submitExercise(exerciseId, userEmail, request);
+        if (result.getPassed()) {
+            JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
+            inscriptionService.markItemCompleted(
+                principal.getId(),
+                courseId,
+                chapterId + ":E"
+            );
+        }
         return ResponseEntity.ok(result);
     }
 
@@ -137,4 +158,10 @@ public class LearnerCourseController {
                 .contentLength(resource.getFileSize())
                 .body(byteResource);
     }
+
+    @GetMapping("/my-courses")
+    public ResponseEntity<List<EnrolledCourseDTO>> getMyCourses(Authentication authentication) {
+    JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
+    return ResponseEntity.ok(skillsProgressService.getEnrolledCourses(principal.getId()));
+}
 }

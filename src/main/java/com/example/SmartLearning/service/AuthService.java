@@ -40,6 +40,9 @@ public class AuthService {
     @Autowired
     private ApprenantRepository apprenantRepository;
 
+    @Autowired
+    private StreakService streakService; 
+
 
  public LoginResponse login(LoginRequest loginRequest) {
         try {
@@ -82,6 +85,7 @@ public class AuthService {
                 .userAgent("Browser") 
                 .build();
             loginHistoryRepository.save(loginHistory);
+            streakService.checkAndLogStreakMilestone(user);
             
 
             String token = jwtUtil.generateToken(user.getId(),user.getUsername(), user.getRole());
@@ -117,7 +121,6 @@ public class AuthService {
             throw new RuntimeException("Email banned");
         }
         userRepository.save(user);
-        // ✅ ADD THIS BLOCK
         if (role == Role.FORMATEUR) {
             Formateur formateur = new Formateur();
             formateur.setUser(user);

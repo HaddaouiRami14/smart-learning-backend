@@ -76,11 +76,9 @@ public class QuizService {
         quiz.setDescription(request.getDescription());
         quiz.setPassingScore(request.getPassingScore());
 
-        // Clear existing questions
         quiz.getQuestions().clear();
         quizRepository.saveAndFlush(quiz);
 
-        // Recreate questions
             for (CreateQuestionRequest qReq : request.getQuestions()) {
             Question question = new Question();
             question.setQuestionText(qReq.getQuestionText());
@@ -95,13 +93,13 @@ public class QuizService {
                 question.setOptions(new ArrayList<>());
             } else {
                 question.setCorrectAnswer(null);
-                question.setOptions(new ArrayList<>()); // initialise liste
+                question.setOptions(new ArrayList<>()); 
             }
 
-            // Sauvegarder la question pour obtenir un ID
+            
             questionRepository.save(question);
 
-            // Sauvegarder les options pour les questions à choix multiple / vrai/faux
+            
             if (qReq.getOptions() != null && !qReq.getOptions().isEmpty()) {
                 List<QuestionOption> options = new ArrayList<>();
                 for (CreateQuestionOptionRequest oReq : qReq.getOptions()) {
@@ -113,7 +111,7 @@ public class QuizService {
                     options.add(questionOptionRepository.save(option));
                 }
                 question.setOptions(options);
-                questionRepository.save(question); // met à jour relation bidirectionnelle
+                questionRepository.save(question); 
             }
 
             quiz.getQuestions().add(question);
@@ -129,7 +127,7 @@ public class QuizService {
         throw new RuntimeException("Quiz not found: " + quizId);
     }
 
-    // ✅ Supprimer dans le bon ordre via SQL natif
+    
     questionOptionRepository.deleteByQuizId(quizId);
     questionRepository.deleteByQuizId(quizId);
     quizRepository.deleteByIdNative(quizId);
@@ -152,37 +150,7 @@ public class QuizService {
             String textAnswer = null;
             String correctAnswer = null;
             
-            /*if (question.getQuestionType() == com.example.SmartLearning.Enum.QuestionType.MULTIPLE_CHOICE ||
-                question.getQuestionType() == com.example.SmartLearning.Enum.QuestionType.TRUE_FALSE) {
-                
-                // Handle option-based questions
-                if (request.getAnswers() != null) {
-                    selectedOptionId = request.getAnswers().get(question.getId());
-                }
-                
-                // ✅ Fix 1 : Filtre null-safe
-                QuestionOption correctOption = question.getOptions().stream()
-                    .filter(o -> Boolean.TRUE.equals(o.getIsCorrect())) // null-safe
-                    .findFirst()
-                    .orElse(null);
-                
-                correctOptionId = correctOption != null ? correctOption.getId() : null;
-                isCorrect = correctOption != null && correctOption.getId().equals(selectedOptionId);
-                
-            } else {
-                // Handle text-based questions (SHORT_ANSWER, EDITOR_ANSWER)
-                if (request.getTextAnswers() != null) {
-                    textAnswer = request.getTextAnswers().get(question.getId());
-                }
-                correctAnswer = question.getCorrectAnswer();
-                
-                // Compare answers (strip HTML tags for EDITOR_ANSWER, case-insensitive)
-                if (textAnswer != null && correctAnswer != null) {
-                    String normalizedUserAnswer = normalizeAnswer(textAnswer);
-                    String normalizedCorrectAnswer = normalizeAnswer(correctAnswer);
-                    isCorrect = normalizedUserAnswer.equals(normalizedCorrectAnswer);
-                }
-            }*/
+            
            if (question.getQuestionType() == QuestionType.MULTIPLE_CHOICE) {
 
                 List<Long> selectedOptionIds = request.getMultiAnswers() != null
@@ -219,7 +187,6 @@ public class QuizService {
                     && correctOption.getId().equals(selectedOptionId);
 
             } else {
-                // SHORT_ANSWER / EDITOR_ANSWER
                 if (request.getTextAnswers() != null) {
                     textAnswer = request.getTextAnswers().get(question.getId());
                 }
@@ -233,15 +200,7 @@ public class QuizService {
                 correctAnswers++;
             }
             
-            /*results.add(QuestionResultResponse.builder()
-                .questionId(question.getId())
-                .questionText(question.getQuestionText())
-                .selectedOptionId(selectedOptionId)
-                .correctOptionId(correctOptionId)
-                .textAnswer(textAnswer)
-                .correctAnswer(correctAnswer)
-                .isCorrect(isCorrect)
-                .build());*/
+            
                 List<Long> selectedOptionIds = question.getQuestionType() == QuestionType.MULTIPLE_CHOICE
                     && request.getMultiAnswers() != null
                     ? request.getMultiAnswers().getOrDefault(question.getId(), new ArrayList<>())
@@ -282,7 +241,6 @@ public class QuizService {
             .build();
     }
     
-    // Helper method to create questions
     private List<Question> createQuestions(Quiz quiz, List<CreateQuestionRequest> questionRequests) {
     List<Question> questions = new ArrayList<>();
     
@@ -302,10 +260,8 @@ public class QuizService {
             question.setOptions(new ArrayList<>());
         }
         
-        // ✅ Sauvegarder la question EN PREMIER pour obtenir son ID
         Question savedQuestion = questionRepository.save(question);
         
-        // ✅ Ensuite sauvegarder les options avec l'ID de la question
         if (qReq.getQuestionType() != com.example.SmartLearning.Enum.QuestionType.SHORT_ANSWER &&
             qReq.getQuestionType() != com.example.SmartLearning.Enum.QuestionType.EDITOR_ANSWER &&
             qReq.getOptions() != null) {
@@ -316,7 +272,7 @@ public class QuizService {
                 option.setOptionText(oReq.getOptionText());
                 option.setIsCorrect(oReq.getIsCorrect());
                 option.setOrderIndex(oReq.getOrderIndex());
-                option.setQuestion(savedQuestion); // ✅ question déjà en DB avec un ID
+                option.setQuestion(savedQuestion); 
                 options.add(questionOptionRepository.save(option));
             }
             savedQuestion.setOptions(options);
@@ -328,12 +284,9 @@ public class QuizService {
     return questions;
 }
     
-    // Normalize answer for comparison (strip HTML, lowercase, trim)
     private String normalizeAnswer(String answer) {
         if (answer == null) return "";
-        // Strip HTML tags
         String normalized = answer.replaceAll("<[^>]*>", "").trim();
-        // Lowercase for case-insensitive comparison
         return normalized.toLowerCase();
     }
     

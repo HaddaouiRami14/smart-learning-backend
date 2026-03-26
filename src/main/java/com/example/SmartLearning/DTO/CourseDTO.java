@@ -2,6 +2,7 @@ package com.example.SmartLearning.DTO;
 
 import java.time.LocalDateTime;
 
+import com.example.SmartLearning.Enum.Category;
 import com.example.SmartLearning.Enum.Level;
 
 import jakarta.validation.constraints.NotBlank;
@@ -25,8 +26,7 @@ private Long id;
  @Size(min = 3, max = 200)
  private String title;
  
- @NotBlank(message = "Category is required")
- private String category;
+ private Category category;
  
  @NotNull(message = "Price is required")
  @DecimalMin(value = "0.0", inclusive = false)
@@ -35,11 +35,7 @@ private Long id;
  @Size(max = 1000)
  private String description;
  
- 
  private String imageUrl;
- 
- //@Size(max = 500)
- //private String pdfUrl;
  
  private Long formateurId;
  private String formateurName;

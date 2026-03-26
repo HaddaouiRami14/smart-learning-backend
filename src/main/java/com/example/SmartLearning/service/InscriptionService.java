@@ -1,5 +1,6 @@
 package com.example.SmartLearning.service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class InscriptionService {
     @Autowired private ChapterRepository chapterRepository;
     @Autowired private QuizRepository quizRepository;
     @Autowired private ExerciseRepository exerciseRepository;
+    @Autowired private ActivityService activityService;
 
     private Long getApprenantId(Long userId) {
         Apprenant apprenant = apprenantRepository.findByUser_Id(userId)
@@ -42,9 +44,9 @@ public class InscriptionService {
     public InscriptionDTO enroll(Long userId, Long courseId) {
         Long apprenantId = getApprenantId(userId);
 
-        if (inscriptionRepository.existsByApprenantIdAndCourseId(apprenantId, courseId)) {
-            return mapToDTO(inscriptionRepository
-                .findByApprenantIdAndCourseId(apprenantId, courseId).get());
+        Optional<Inscription> existingInscription = inscriptionRepository.findByApprenantIdAndCourseId(apprenantId, courseId);
+        if (existingInscription.isPresent()) {
+            return mapToDTO(existingInscription.get());
         }
 
         Apprenant apprenant = apprenantRepository.findById(apprenantId)
@@ -52,7 +54,7 @@ public class InscriptionService {
         Course course = courseRepository.findById(courseId)
             .orElseThrow(() -> new RuntimeException("Course not found"));
 
-        Inscription inscription = Inscription.builder()
+        Inscription newInscription = Inscription.builder()
             .apprenant(apprenant)
             .course(course)
             .dateInscription(LocalDate.now())
@@ -60,7 +62,12 @@ public class InscriptionService {
             .completedItems("")
             .build();
 
-        return mapToDTO(inscriptionRepository.save(inscription));
+        try {
+            return mapToDTO(inscriptionRepository.save(newInscription));
+        } catch (DataIntegrityViolationException ex) {
+            return mapToDTO(inscriptionRepository.findByApprenantIdAndCourseId(apprenantId, courseId)
+                .orElseThrow(() -> new RuntimeException("Erreur critique lors de l'inscription")));
+        }
     }
 
     public InscriptionDTO updateProgress(Long userId, Long courseId, Double progression) {
@@ -95,10 +102,7 @@ public class InscriptionService {
         return inscriptionRepository.existsByApprenantIdAndCourseId(apprenantId, courseId);
     }
 
-    /**
-     * Mark a quiz ("chapterId:Q") or exercise ("chapterId:E") as completed,
-     * persist it, then recalculate and return full progress detail.
-     */
+    
     public ProgressDetailDTO markItemCompleted(Long userId, Long courseId, String item) {
         Long apprenantId = getApprenantId(userId);
 
@@ -114,9 +118,7 @@ public class InscriptionService {
         return getProgressDetail(userId, courseId);
     }
 
-    /**
-     * Get detailed progress — which chapters have quiz/exercise passed.
-     */
+    
     public ProgressDetailDTO getProgressDetail(Long userId, Long courseId) {
         Long apprenantId = getApprenantId(userId);
 
@@ -167,9 +169,42 @@ public class InscriptionService {
         int totalChapters = chapters.size();
         double progress = totalChapters > 0 ? (completedCount * 100.0 / totalChapters) : 0.0;
 
-        if (Math.abs(inscription.getProgression() - progress) > 0.1) {
+        
+       if (Math.abs(inscription.getProgression() - progress) > 0.1) {
+            double oldProgress = inscription.getProgression();
+
+            Apprenant apprenant = inscription.getApprenant();
+            Course    course    = inscription.getCourse();
+            String categoryLabel = course.getCategory().getLabel();
+
+            List<Inscription> categoryInscriptions = inscriptionRepository
+                .findByApprenantId(apprenant.getId())
+                .stream()
+                .filter(i -> i.getCourse().getCategory().getLabel().equals(categoryLabel))
+                .collect(Collectors.toList());
+
+            double oldCategoryProg = computeAvg(categoryInscriptions);
+            String oldLevel = resolveLevel(oldCategoryProg);
+
+            
             inscription.setProgression(Math.round(progress * 10.0) / 10.0);
             inscriptionRepository.save(inscription);
+            inscriptionRepository.flush(); 
+
+            double newCategoryProg = computeAvgWithOverride(
+                categoryInscriptions, 
+                inscription.getId(), 
+                Math.round(progress * 10.0) / 10.0
+            );
+            String newLevel = resolveLevel(newCategoryProg);
+
+            if (progress >= 100.0 && oldProgress < 100.0) {
+                activityService.logCourseCompleted(apprenant, course);
+            }
+
+            if (!oldLevel.equals(newLevel)) {
+                activityService.logSkillLevelUp(apprenant, categoryLabel);
+            }
         }
 
         return ProgressDetailDTO.builder()
@@ -200,4 +235,32 @@ public class InscriptionService {
         dto.setProgression(i.getProgression());
         return dto;
     }
+
+    private String resolveLevel(double pct) {
+    if (pct <= 0)  return "Not Started";
+    if (pct < 35)  return "Beginner";
+    if (pct < 65)  return "Intermediate";
+    if (pct < 85)  return "Advanced";
+    return "Expert";
+}
+private double computeAvg(List<Inscription> inscriptions) {
+    if (inscriptions.isEmpty()) return 0.0;
+    double avg = inscriptions.stream()
+        .mapToDouble(Inscription::getProgression)
+        .average()
+        .orElse(0.0);
+    return Math.round(avg * 10.0) / 10.0;
+}
+
+
+private double computeAvgWithOverride(List<Inscription> inscriptions, 
+                                       Long inscriptionId, 
+                                       double newProgression) {
+    if (inscriptions.isEmpty()) return 0.0;
+    double sum = inscriptions.stream()
+        .mapToDouble(i -> i.getId().equals(inscriptionId) ? newProgression : i.getProgression())
+        .sum();
+    double avg = sum / inscriptions.size();
+    return Math.round(avg * 10.0) / 10.0;
+}
 }

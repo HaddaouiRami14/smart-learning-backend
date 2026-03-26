@@ -29,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final FormateurRepository formateurRepository;
     private final UserRepository userRepository;
-    private final BannedEmailRepository bannedEmailRepository; // ✅ Ajouter
+    private final BannedEmailRepository bannedEmailRepository; 
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -48,7 +48,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
         username = jwtUtil.extractUsername(jwt);
 
-        //if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
         if (username != null ) {
 
             if (jwtUtil.validateToken(jwt, username)) {
@@ -60,11 +59,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (user != null && user.isBanned()) {
                     if (user.getBanExpiresAt() != null
                             && user.getBanExpiresAt().isBefore(LocalDateTime.now())) {
-                        // ✅ Ban expiré → lever le ban ET supprimer l'email de banned_email
                         user.setBanned(false);
                         user.setBanExpiresAt(null);
                         userRepository.save(user);
-                        bannedEmailRepository.deleteByEmail(user.getEmail()); // ✅ Ajouter
+                        bannedEmailRepository.deleteByEmail(user.getEmail()); 
                     } else {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json");

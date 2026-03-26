@@ -18,8 +18,6 @@ public interface ExerciseSubmissionRepository extends JpaRepository<ExerciseSubm
     );
     List<ExerciseSubmission> findByExerciseAndApprenant(Exercise exercise, Apprenant apprenant);
     void deleteByExercise(Exercise exercise);
-    /*@Modifying
-    @Query(value = "DELETE FROM exercise_submissions WHERE exercise_id = :exerciseId", nativeQuery = true)
-    void deleteByExerciseId(@Param("exerciseId") Long exerciseId);*/
+    
     void deleteByExerciseId(Long exerciseId);
 }

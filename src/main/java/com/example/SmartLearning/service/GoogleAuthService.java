@@ -67,10 +67,8 @@ public class GoogleAuthService {
                 String googleId = payload.getSubject();
                 String picture = (String) payload.get("picture");
 
-                // ✅ Vérifier si l'utilisateur existe AVANT
                 boolean userExists = userRepository.findByEmail(email).isPresent();
                 
-                // Chercher l'utilisateur par email
                 User user = userRepository.findByEmail(email)
                     .orElseGet(() -> createGoogleUser(email, name, googleId, picture, requestedRole));
 
@@ -88,7 +86,6 @@ public class GoogleAuthService {
                     }
                 }
                 
-                // Si l'utilisateur existe mais n'est pas lié à Google, mettre à jour
                 if (user.getProvider() == null || user.getProvider() == AuthProvider.LOCAL) {
                     user.setProvider(AuthProvider.GOOGLE);
                     user.setGoogleId(googleId);
@@ -96,7 +93,6 @@ public class GoogleAuthService {
                     user = userRepository.save(user);
                 }
 
-                // Update last login time
                 user.setLastLogin(LocalDateTime.now());
                 user = userRepository.save(user);
                 
@@ -117,10 +113,8 @@ public class GoogleAuthService {
                     
                 }
                 
-                // Générer le token JWT
                 String jwt = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
                 
-                // Créer la réponse (sans renvoyer le mot de passe)
                 User userResponse = User.builder()
                     .id(user.getId())
                     .username(user.getUsername())
@@ -145,7 +139,6 @@ public class GoogleAuthService {
     }
     
     private User createGoogleUser(String email, String name, String googleId, String picture, Role requestedRole) {
-        // Déterminer le rôle : LEARNER ou TRAINER uniquement (jamais ADMIN)
         Role userRole = determineUserRole(requestedRole);
         
         User newUser = User.builder()
@@ -156,13 +149,12 @@ public class GoogleAuthService {
             .provider(AuthProvider.GOOGLE)
             .role(userRole)
             .password(null)
-            .timezone("UTC") // Set default timezone
+            .timezone("UTC") 
             .build();
             if (bannedEmailRepository.existsByEmail(email)) {
             throw new RuntimeException("Email banned");
         }
         
-        //return userRepository.save(newUser);
         User savedUser = userRepository.save(newUser); 
         
 
