@@ -111,37 +111,57 @@ public class AuthService {
         throw new RuntimeException("Un utilisateur avec cet email existe déjà");
     }
 
-    User user = new User();
+    if (bannedEmailRepository.existsByEmail(email)) {
+        throw new RuntimeException("Email banned");
+    }
+
+    // WE CREATE A GENERIC USER VARIABLE TO HOLD OUR SPECIFIC OBJECT
+    User user;
+
+    // Instead of creating a User and linking it, we create the specific child class directly!
+    if (role == Role.FORMATEUR) {
+        Formateur formateur = new Formateur();
+        formateur.setUsername(username);
+        formateur.setEmail(email);
+        formateur.setPassword(passwordEncoder.encode(password));
+        formateur.setRole(role);
+        formateur.setTimezone("UTC"); 
+        formateur.setBio("");
+        formateur.setSpecialization("");
+        
+        formateurRepository.save(formateur); // This saves to BOTH users and formateurs tables!
+        user = formateur; // Assign it to our generic variable
+    } 
+    else if (role == Role.APPRENANT) {
+        Apprenant apprenant = new Apprenant();
+        apprenant.setUsername(username);
+        apprenant.setEmail(email);
+        apprenant.setPassword(passwordEncoder.encode(password));
+        apprenant.setRole(role);
+        apprenant.setTimezone("UTC"); 
+        
+        apprenantRepository.save(apprenant); // This saves to BOTH users and apprenants tables!
+        user = apprenant; // Assign it to our generic variable
+    } 
+    else {
+        // Fallback just in case it's an Admin or something else
+        user = new User();
         user.setUsername(username);
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
         user.setRole(role);
-        user.setTimezone("UTC"); 
-        if (bannedEmailRepository.existsByEmail(email)) {
-            throw new RuntimeException("Email banned");
-        }
+        user.setTimezone("UTC");
         userRepository.save(user);
-        if (role == Role.FORMATEUR) {
-            Formateur formateur = new Formateur();
-            formateur.setUser(user);
-            formateur.setBio("");
-            formateur.setSpecialization("");
-            formateurRepository.save(formateur);
-        }
-        if (role == Role.APPRENANT) {
-            Apprenant apprenant = new Apprenant();
-            apprenant.setUser(user);
-            apprenantRepository.save(apprenant);
-        }
+    }
 
         
-        LoginHistory loginHistory = LoginHistory.builder()
-            .user(user)
-            .loginTime(LocalDateTime.now())
-            .ipAddress("Registration")
-            .userAgent("Browser")
-            .build();
-        loginHistoryRepository.save(loginHistory);
+    LoginHistory loginHistory = LoginHistory.builder()
+        .user(user) // Works perfectly because Formateur/Apprenant ARE users now
+        .loginTime(LocalDateTime.now())
+        .ipAddress("Registration")
+        .userAgent("Browser")
+        .build();
+    loginHistoryRepository.save(loginHistory);
 
     String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
 
@@ -159,9 +179,5 @@ public class AuthService {
         "user", userMap
     );
 }
-
-
-
-
 
 }

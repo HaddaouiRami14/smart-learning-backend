@@ -33,7 +33,9 @@ public class ActivityService {
 
     @Transactional(readOnly = true)
     public List<ActivityDTO> getRecentActivities(Long userId) {
-        Apprenant apprenant = apprenantRepository.findByUser_Id(userId)
+        // FIX 1: Changed from findByUser_Id(userId) to just findById(userId)
+        // Because Apprenant IS a User, the Apprenant's ID is the User's ID.
+        Apprenant apprenant = apprenantRepository.findById(userId)
             .orElseThrow(() -> new NoSuchElementException("Apprenant not found"));
 
         return activityLogRepository
@@ -81,8 +83,9 @@ public class ActivityService {
             .orElse(null);
 
         if (category != null) {
+            // FIX 2: Changed apprenant.getUser().getId() to just apprenant.getId()
             SkillCategoryDTO realStats = skillsProgressService.getCategoryProgress(
-                apprenant.getUser().getId(), 
+                apprenant.getId(), 
                 category
             );
 

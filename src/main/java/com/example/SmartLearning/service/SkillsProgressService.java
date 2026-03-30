@@ -44,7 +44,8 @@ public class SkillsProgressService {
 
         return SkillsDashboardDTO.builder()
             .apprenantId(apprenantId)
-            .learnerName(apprenant.getUser().getUsername())
+            // FIX 1: Removed .getUser()
+            .learnerName(apprenant.getUsername()) 
             .overallProgressPercentage(overallPct)
             .totalEnrolledCourses(totalEnrolled)
             .totalCompletedCourses(totalCompleted)
@@ -107,7 +108,8 @@ public class SkillsProgressService {
     
 
     private Apprenant findApprenant(Long userId) {
-        return apprenantRepository.findByUser_Id(userId)
+        // FIX 2: Changed findByUser_Id(userId) to findById(userId)
+        return apprenantRepository.findById(userId)
             .orElseThrow(() -> new NoSuchElementException("Apprenant not found for userId: " + userId));
     }
 

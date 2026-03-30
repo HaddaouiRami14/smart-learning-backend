@@ -35,7 +35,8 @@ public class FormateurProfileService {
             throw new RuntimeException("Access denied");
         }
 
-        Formateur formateur = formateurRepository.findByUser_Id(user.getId())
+        // FIX: Changed from findByUser_Id to findById
+        Formateur formateur = formateurRepository.findById(user.getId())
                 .orElseThrow(() -> new RuntimeException("Formateur not found"));
 
         return FormateurProfileResponse.builder()
@@ -60,7 +61,8 @@ public class FormateurProfileService {
             throw new RuntimeException("Access denied");
         }
 
-        Formateur formateur = formateurRepository.findByUser_Id(user.getId())
+        // FIX: Changed from findByUser_Id to findById
+        Formateur formateur = formateurRepository.findById(user.getId())
                 .orElseThrow(() -> new RuntimeException("Formateur not found"));
 
         formateur.setBio(request.getBio());

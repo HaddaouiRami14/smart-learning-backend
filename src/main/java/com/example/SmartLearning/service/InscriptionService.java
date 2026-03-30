@@ -36,9 +36,10 @@ public class InscriptionService {
     @Autowired private ActivityService activityService;
 
     private Long getApprenantId(Long userId) {
-        Apprenant apprenant = apprenantRepository.findByUser_Id(userId)
+        // FIX: Changed from findByUser_Id to findById
+        Apprenant apprenant = apprenantRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("Apprenant not found for user: " + userId));
-        return apprenant.getId();
+        return apprenant.getId(); // This will now just return the exact same userId!
     }
 
     public InscriptionDTO enroll(Long userId, Long courseId) {
