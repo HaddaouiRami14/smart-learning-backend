@@ -29,7 +29,7 @@ private Long id;
  private Category category;
  
  @NotNull(message = "Price is required")
- @DecimalMin(value = "0.0", inclusive = false)
+ @DecimalMin(value = "0.0", inclusive = true) // ✅ CHANGED: allows 0 for free courses
  private Double price;
  
  @Size(max = 1000)
