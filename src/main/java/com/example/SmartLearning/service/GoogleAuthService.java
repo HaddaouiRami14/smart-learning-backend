@@ -141,48 +141,64 @@ public class GoogleAuthService {
     private User createGoogleUser(String email, String name, String googleId, String picture, Role requestedRole) {
         Role userRole = determineUserRole(requestedRole);
         
-        User newUser = User.builder()
-            .email(email)
-            .username(name != null ? name : email.split("@")[0])
-            .googleId(googleId)
-            .picture(picture)
-            .provider(AuthProvider.GOOGLE)
-            .role(userRole)
-            .password(null)
-            .timezone("UTC") 
-            .build();
-            if (bannedEmailRepository.existsByEmail(email)) {
+        if (bannedEmailRepository.existsByEmail(email)) {
             throw new RuntimeException("Email banned");
         }
-        
-        User savedUser = userRepository.save(newUser); 
-        
 
+        // We hold the created user in a generic variable
+        User savedUser;
+
+        // FIX: Create the child class directly and set the inherited User fields on it
         if (userRole == Role.FORMATEUR) {              
-            
             Formateur formateur = new Formateur();
-            formateur.setUser(savedUser);
+            formateur.setEmail(email);
+            formateur.setUsername(name != null ? name : email.split("@")[0]);
+            formateur.setGoogleId(googleId);
+            formateur.setPicture(picture);
+            formateur.setProvider(AuthProvider.GOOGLE);
+            formateur.setRole(userRole);
+            formateur.setPassword(null);
+            formateur.setTimezone("UTC"); 
             formateur.setBio("");
             formateur.setSpecialization("");
-            formateurRepository.save(formateur);
-        }
-        if (userRole == Role.APPRENANT) {              
+            
+            savedUser = formateurRepository.save(formateur); // Saves to both tables!
+        } 
+        else if (userRole == Role.APPRENANT) {              
             Apprenant apprenant = new Apprenant();
-            apprenant.setUser(savedUser);
-            apprenantRepository.save(apprenant);
+            apprenant.setEmail(email);
+            apprenant.setUsername(name != null ? name : email.split("@")[0]);
+            apprenant.setGoogleId(googleId);
+            apprenant.setPicture(picture);
+            apprenant.setProvider(AuthProvider.GOOGLE);
+            apprenant.setRole(userRole);
+            apprenant.setPassword(null);
+            apprenant.setTimezone("UTC"); 
+            
+            savedUser = apprenantRepository.save(apprenant); // Saves to both tables!
+        } 
+        else {
+            // Fallback just in case
+            User newUser = User.builder()
+                .email(email)
+                .username(name != null ? name : email.split("@")[0])
+                .googleId(googleId)
+                .picture(picture)
+                .provider(AuthProvider.GOOGLE)
+                .role(userRole)
+                .password(null)
+                .timezone("UTC") 
+                .build();
+            savedUser = userRepository.save(newUser);
         }
 
         return savedUser; 
-
-       
-
     }
     
     private Role determineUserRole(Role requestedRole) {
         if (requestedRole == Role.APPRENANT || requestedRole == Role.FORMATEUR) {
             return requestedRole;
         }
-        
         
         return Role.APPRENANT;
     }

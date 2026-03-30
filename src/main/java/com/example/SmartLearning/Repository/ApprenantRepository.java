@@ -5,9 +5,11 @@ import com.example.SmartLearning.model.Apprenant;
 
 public interface ApprenantRepository extends JpaRepository<Apprenant, Long> {
 
-    Optional<Apprenant> findByUserUsername(String username);
+    // Changed from findByUserUsername to findByUsername
+    Optional<Apprenant> findByUsername(String username);
 
-    boolean existsByUserUsername(String username);
+    // Changed from existsByUserUsername to existsByUsername
+    boolean existsByUsername(String username);
 
-    Optional<Apprenant> findByUser_Id(Long userId);
+    // Deleted findByUser_Id because JpaRepository already provides findById(Long id)!
 }

@@ -28,7 +28,8 @@ public class ProgressService {
 
     
     public Long getApprenantIdFromUsername(String username) {
-        return apprenantRepository.findByUserUsername(username)
+        // FIX: Changed from findByUserUsername to findByUsername
+        return apprenantRepository.findByUsername(username)
             .map(Apprenant::getId)
             .orElse(null);
     }

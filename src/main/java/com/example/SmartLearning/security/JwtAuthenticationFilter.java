@@ -75,10 +75,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
 
-                Long formateurId = formateurRepository.findByUser_Id(userId)
+                // FIX: Changed findByUser_Id to findById, and findByUserUsername to findByUsername
+                Long formateurId = formateurRepository.findById(userId)
                         .map(Formateur::getId)
                         .orElseGet(() -> formateurRepository
-                                .findByUserUsername(username)
+                                .findByUsername(username)
                                 .map(Formateur::getId)
                                 .orElse(null));
 
@@ -98,4 +99,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
-    

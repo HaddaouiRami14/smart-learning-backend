@@ -65,7 +65,9 @@ public class StreakService {
         int streak = calculateStreak(user);
 
         if (streak <= 0) return;
-        apprenantRepository.findByUser_Id(user.getId()).ifPresent(apprenant -> {
+        
+        // FIX: Changed from findByUser_Id to findById
+        apprenantRepository.findById(user.getId()).ifPresent(apprenant -> {
 
             
             boolean alreadyLoggedToday = activityLogRepository.existsTodayByType(apprenant.getId(), ActivityType.STREAK_MILESTONE);
