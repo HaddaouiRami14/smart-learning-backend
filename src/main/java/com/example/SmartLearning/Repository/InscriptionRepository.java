@@ -7,6 +7,7 @@ import com.example.SmartLearning.Enum.Category;
 import com.example.SmartLearning.model.Inscription;
 
 import java.util.Optional;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface InscriptionRepository extends JpaRepository<Inscription, Long> {
@@ -53,4 +54,37 @@ List<CategorySkillProjection> aggregateSkillsByCategory(@Param("apprenantId") Lo
     ORDER BY i.dateInscription DESC
 """)
 List<Inscription> findEnrolledCoursesByApprenant(@Param("apprenantId") Long apprenantId);
+
+// ── Nouvelles méthodes pour la recommandation ─────────────────────────────
+ 
+    @Query("SELECT i.course.id FROM Inscription i WHERE i.apprenant.id = :apprenantId")
+    List<Long> findCourseIdsByApprenantId(@Param("apprenantId") Long apprenantId);
+ 
+    // Trending : nb d'inscriptions par cours dans les 7 derniers jours
+    @Query("""
+        SELECT i.course.id, COUNT(i)
+        FROM Inscription i
+        WHERE i.course.id IN :courseIds
+          AND i.dateInscription >= :since
+        GROUP BY i.course.id
+        ORDER BY COUNT(i) DESC
+    """)
+    List<Object[]> countRecentInscriptionsByCourseIds(
+        @Param("courseIds") List<Long> courseIds,
+        @Param("since")     LocalDate since
+    );
+ 
+    // Apprenants ayant les mêmes cours inscrits (collaboratif)
+    @Query("""
+        SELECT DISTINCT i.apprenant.id
+        FROM Inscription i
+        WHERE i.course.id IN :courseIds
+          AND i.apprenant.id != :apprenantId
+    """)
+    List<Long> findSimilarApprenantIds(
+        @Param("apprenantId") Long apprenantId,
+        @Param("courseIds")   List<Long> courseIds
+    );
+
+
 }
