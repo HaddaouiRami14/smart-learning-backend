@@ -33,6 +33,7 @@ public class QuizService {
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
     private final ChapterRepository chapterRepository;
+    private final BadgeService badgeService; // ✅ NEW
     
     @Transactional
     public QuizResponse createQuiz(Long courseId, Long chapterId, CreateQuizRequest request) {
@@ -79,7 +80,7 @@ public class QuizService {
         quiz.getQuestions().clear();
         quizRepository.saveAndFlush(quiz);
 
-            for (CreateQuestionRequest qReq : request.getQuestions()) {
+        for (CreateQuestionRequest qReq : request.getQuestions()) {
             Question question = new Question();
             question.setQuestionText(qReq.getQuestionText());
             question.setQuestionType(qReq.getQuestionType());
@@ -96,10 +97,8 @@ public class QuizService {
                 question.setOptions(new ArrayList<>()); 
             }
 
-            
             questionRepository.save(question);
 
-            
             if (qReq.getOptions() != null && !qReq.getOptions().isEmpty()) {
                 List<QuestionOption> options = new ArrayList<>();
                 for (CreateQuestionOptionRequest oReq : qReq.getOptions()) {
@@ -123,14 +122,12 @@ public class QuizService {
     
     @Transactional
     public void deleteQuiz(Long quizId) {
-    if (!quizRepository.existsById(quizId)) {
-        throw new RuntimeException("Quiz not found: " + quizId);
-    }
-
-    
-    questionOptionRepository.deleteByQuizId(quizId);
-    questionRepository.deleteByQuizId(quizId);
-    quizRepository.deleteByIdNative(quizId);
+        if (!quizRepository.existsById(quizId)) {
+            throw new RuntimeException("Quiz not found: " + quizId);
+        }
+        questionOptionRepository.deleteByQuizId(quizId);
+        questionRepository.deleteByQuizId(quizId);
+        quizRepository.deleteByIdNative(quizId);
     }
     
     @Transactional
@@ -150,8 +147,7 @@ public class QuizService {
             String textAnswer = null;
             String correctAnswer = null;
             
-            
-           if (question.getQuestionType() == QuestionType.MULTIPLE_CHOICE) {
+            if (question.getQuestionType() == QuestionType.MULTIPLE_CHOICE) {
 
                 List<Long> selectedOptionIds = request.getMultiAnswers() != null
                     ? request.getMultiAnswers().getOrDefault(question.getId(), new ArrayList<>())
@@ -166,9 +162,8 @@ public class QuizService {
                     && selectedOptionIds.size() == correctOptionIds.size()
                     && selectedOptionIds.containsAll(correctOptionIds);
 
-                // Pour le résultat affiché côté frontend
-                correctOptionId = null; // pas applicable pour multi
-                selectedOptionId = null; // pas applicable pour multi
+                correctOptionId = null;
+                selectedOptionId = null;
 
             } else if (question.getQuestionType() == QuestionType.TRUE_FALSE) {
 
@@ -200,35 +195,47 @@ public class QuizService {
                 correctAnswers++;
             }
             
-            
-                List<Long> selectedOptionIds = question.getQuestionType() == QuestionType.MULTIPLE_CHOICE
-                    && request.getMultiAnswers() != null
-                    ? request.getMultiAnswers().getOrDefault(question.getId(), new ArrayList<>())
-                    : new ArrayList<>();
+            List<Long> selectedOptionIds = question.getQuestionType() == QuestionType.MULTIPLE_CHOICE
+                && request.getMultiAnswers() != null
+                ? request.getMultiAnswers().getOrDefault(question.getId(), new ArrayList<>())
+                : new ArrayList<>();
 
-                List<Long> correctOptionIds = question.getQuestionType() == QuestionType.MULTIPLE_CHOICE
-                    ? question.getOptions().stream()
-                        .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
-                        .map(QuestionOption::getId)
-                        .collect(Collectors.toList())
-                    : new ArrayList<>();
+            List<Long> correctOptionIds = question.getQuestionType() == QuestionType.MULTIPLE_CHOICE
+                ? question.getOptions().stream()
+                    .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                    .map(QuestionOption::getId)
+                    .collect(Collectors.toList())
+                : new ArrayList<>();
 
-                results.add(QuestionResultResponse.builder()
-                    .questionId(question.getId())
-                    .questionText(question.getQuestionText())
-                    .selectedOptionId(selectedOptionId)
-                    .selectedOptionIds(selectedOptionIds)
-                    .correctOptionId(correctOptionId)
-                    .correctOptionIds(correctOptionIds)
-                    .textAnswer(textAnswer)
-                    .correctAnswer(correctAnswer)
-                    .isCorrect(isCorrect)
-                    .build());
+            results.add(QuestionResultResponse.builder()
+                .questionId(question.getId())
+                .questionText(question.getQuestionText())
+                .selectedOptionId(selectedOptionId)
+                .selectedOptionIds(selectedOptionIds)
+                .correctOptionId(correctOptionId)
+                .correctOptionIds(correctOptionIds)
+                .textAnswer(textAnswer)
+                .correctAnswer(correctAnswer)
+                .isCorrect(isCorrect)
+                .build());
         }
         
         int totalQuestions = questions.size();
         int score = totalQuestions > 0 ? (correctAnswers * 100) / totalQuestions : 0;
         boolean passed = score >= quiz.getPassingScore();
+
+        // ✅ NEW: Award badges based on quiz result
+        if (passed && request.getApprenantId() != null) {
+            try {
+                // Award QUIZ_MASTER if score is 100%
+                badgeService.onQuizPassed(request.getApprenantId(), score);
+                // Check all other badges too
+                badgeService.checkAndAwardBadges(request.getApprenantId());
+            } catch (Exception e) {
+                // Don't fail quiz submission if badge awarding fails
+                System.err.println("Badge awarding failed: " + e.getMessage());
+            }
+        }
         
         return QuizResultResponse.builder()
             .quizId(quiz.getId())
@@ -242,47 +249,47 @@ public class QuizService {
     }
     
     private List<Question> createQuestions(Quiz quiz, List<CreateQuestionRequest> questionRequests) {
-    List<Question> questions = new ArrayList<>();
-    
-    for (CreateQuestionRequest qReq : questionRequests) {
-        Question question = new Question();
-        question.setQuestionText(qReq.getQuestionText());
-        question.setQuestionType(qReq.getQuestionType());
-        question.setOrderIndex(qReq.getOrderIndex());
-        question.setPoints(qReq.getPoints());
-        question.setQuiz(quiz);
+        List<Question> questions = new ArrayList<>();
         
-        if (qReq.getQuestionType() == com.example.SmartLearning.Enum.QuestionType.SHORT_ANSWER ||
-            qReq.getQuestionType() == com.example.SmartLearning.Enum.QuestionType.EDITOR_ANSWER) {
-            question.setCorrectAnswer(qReq.getCorrectAnswer());
-            question.setOptions(new ArrayList<>());
-        } else {
-            question.setOptions(new ArrayList<>());
-        }
-        
-        Question savedQuestion = questionRepository.save(question);
-        
-        if (qReq.getQuestionType() != com.example.SmartLearning.Enum.QuestionType.SHORT_ANSWER &&
-            qReq.getQuestionType() != com.example.SmartLearning.Enum.QuestionType.EDITOR_ANSWER &&
-            qReq.getOptions() != null) {
+        for (CreateQuestionRequest qReq : questionRequests) {
+            Question question = new Question();
+            question.setQuestionText(qReq.getQuestionText());
+            question.setQuestionType(qReq.getQuestionType());
+            question.setOrderIndex(qReq.getOrderIndex());
+            question.setPoints(qReq.getPoints());
+            question.setQuiz(quiz);
             
-            List<QuestionOption> options = new ArrayList<>();
-            for (CreateQuestionOptionRequest oReq : qReq.getOptions()) {
-                QuestionOption option = new QuestionOption();
-                option.setOptionText(oReq.getOptionText());
-                option.setIsCorrect(oReq.getIsCorrect());
-                option.setOrderIndex(oReq.getOrderIndex());
-                option.setQuestion(savedQuestion); 
-                options.add(questionOptionRepository.save(option));
+            if (qReq.getQuestionType() == com.example.SmartLearning.Enum.QuestionType.SHORT_ANSWER ||
+                qReq.getQuestionType() == com.example.SmartLearning.Enum.QuestionType.EDITOR_ANSWER) {
+                question.setCorrectAnswer(qReq.getCorrectAnswer());
+                question.setOptions(new ArrayList<>());
+            } else {
+                question.setOptions(new ArrayList<>());
             }
-            savedQuestion.setOptions(options);
+            
+            Question savedQuestion = questionRepository.save(question);
+            
+            if (qReq.getQuestionType() != com.example.SmartLearning.Enum.QuestionType.SHORT_ANSWER &&
+                qReq.getQuestionType() != com.example.SmartLearning.Enum.QuestionType.EDITOR_ANSWER &&
+                qReq.getOptions() != null) {
+                
+                List<QuestionOption> options = new ArrayList<>();
+                for (CreateQuestionOptionRequest oReq : qReq.getOptions()) {
+                    QuestionOption option = new QuestionOption();
+                    option.setOptionText(oReq.getOptionText());
+                    option.setIsCorrect(oReq.getIsCorrect());
+                    option.setOrderIndex(oReq.getOrderIndex());
+                    option.setQuestion(savedQuestion); 
+                    options.add(questionOptionRepository.save(option));
+                }
+                savedQuestion.setOptions(options);
+            }
+            
+            questions.add(savedQuestion);
         }
         
-        questions.add(savedQuestion);
+        return questions;
     }
-    
-    return questions;
-}
     
     private String normalizeAnswer(String answer) {
         if (answer == null) return "";
@@ -319,5 +326,4 @@ public class QuizService {
             .questions(questionResponses)
             .build();
     }
-    
 }

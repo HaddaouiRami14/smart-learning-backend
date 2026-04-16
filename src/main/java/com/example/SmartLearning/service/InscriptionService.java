@@ -34,12 +34,12 @@ public class InscriptionService {
     @Autowired private QuizRepository quizRepository;
     @Autowired private ExerciseRepository exerciseRepository;
     @Autowired private ActivityService activityService;
+    @Autowired private BadgeService badgeService; // ✅ NEW
 
     private Long getApprenantId(Long userId) {
-        // FIX: Changed from findByUser_Id to findById
         Apprenant apprenant = apprenantRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("Apprenant not found for user: " + userId));
-        return apprenant.getId(); // This will now just return the exact same userId!
+        return apprenant.getId();
     }
 
     public InscriptionDTO enroll(Long userId, Long courseId) {
@@ -64,7 +64,14 @@ public class InscriptionService {
             .build();
 
         try {
-            return mapToDTO(inscriptionRepository.save(newInscription));
+            InscriptionDTO dto = mapToDTO(inscriptionRepository.save(newInscription));
+            // ✅ Award FIRST_STEP badge on first enrollment
+            try {
+                badgeService.checkAndAwardBadges(userId);
+            } catch (Exception e) {
+                System.err.println("Badge awarding failed on enroll: " + e.getMessage());
+            }
+            return dto;
         } catch (DataIntegrityViolationException ex) {
             return mapToDTO(inscriptionRepository.findByApprenantIdAndCourseId(apprenantId, courseId)
                 .orElseThrow(() -> new RuntimeException("Erreur critique lors de l'inscription")));
@@ -103,7 +110,6 @@ public class InscriptionService {
         return inscriptionRepository.existsByApprenantIdAndCourseId(apprenantId, courseId);
     }
 
-    
     public ProgressDetailDTO markItemCompleted(Long userId, Long courseId, String item) {
         Long apprenantId = getApprenantId(userId);
 
@@ -116,10 +122,28 @@ public class InscriptionService {
         inscription.setCompletedItems(String.join(",", items));
         inscriptionRepository.save(inscription);
 
-        return getProgressDetail(userId, courseId);
+        ProgressDetailDTO result = getProgressDetail(userId, courseId);
+
+        // ✅ Award badges after progress update
+        try {
+            // Check exercise badge if item is an exercise
+            if (item.endsWith(":E")) {
+                try {
+                    Long chapterId = Long.parseLong(item.replace(":E", ""));
+                    badgeService.onExercisePassed(userId, chapterId);
+                } catch (NumberFormatException ignored) {
+                    badgeService.onExercisePassed(userId, null);
+                }
+            }
+            // Check all other badges (COURSE_COMPLETE, SCHOLAR, EXPLORER, PERFECTIONIST)
+            badgeService.checkAndAwardBadges(userId);
+        } catch (Exception e) {
+            System.err.println("Badge awarding failed on markItemCompleted: " + e.getMessage());
+        }
+
+        return result;
     }
 
-    
     public ProgressDetailDTO getProgressDetail(Long userId, Long courseId) {
         Long apprenantId = getApprenantId(userId);
 
@@ -170,8 +194,7 @@ public class InscriptionService {
         int totalChapters = chapters.size();
         double progress = totalChapters > 0 ? (completedCount * 100.0 / totalChapters) : 0.0;
 
-        
-       if (Math.abs(inscription.getProgression() - progress) > 0.1) {
+        if (Math.abs(inscription.getProgression() - progress) > 0.1) {
             double oldProgress = inscription.getProgression();
 
             Apprenant apprenant = inscription.getApprenant();
@@ -187,14 +210,13 @@ public class InscriptionService {
             double oldCategoryProg = computeAvg(categoryInscriptions);
             String oldLevel = resolveLevel(oldCategoryProg);
 
-            
             inscription.setProgression(Math.round(progress * 10.0) / 10.0);
             inscriptionRepository.save(inscription);
-            inscriptionRepository.flush(); 
+            inscriptionRepository.flush();
 
             double newCategoryProg = computeAvgWithOverride(
-                categoryInscriptions, 
-                inscription.getId(), 
+                categoryInscriptions,
+                inscription.getId(),
                 Math.round(progress * 10.0) / 10.0
             );
             String newLevel = resolveLevel(newCategoryProg);
@@ -238,30 +260,60 @@ public class InscriptionService {
     }
 
     private String resolveLevel(double pct) {
-    if (pct <= 0)  return "Not Started";
-    if (pct < 35)  return "Beginner";
-    if (pct < 65)  return "Intermediate";
-    if (pct < 85)  return "Advanced";
-    return "Expert";
-}
-private double computeAvg(List<Inscription> inscriptions) {
-    if (inscriptions.isEmpty()) return 0.0;
-    double avg = inscriptions.stream()
-        .mapToDouble(Inscription::getProgression)
-        .average()
-        .orElse(0.0);
-    return Math.round(avg * 10.0) / 10.0;
-}
+        if (pct <= 0)  return "Not Started";
+        if (pct < 35)  return "Beginner";
+        if (pct < 65)  return "Intermediate";
+        if (pct < 85)  return "Advanced";
+        return "Expert";
+    }
+
+    private double computeAvg(List<Inscription> inscriptions) {
+        if (inscriptions.isEmpty()) return 0.0;
+        double avg = inscriptions.stream()
+            .mapToDouble(Inscription::getProgression)
+            .average()
+            .orElse(0.0);
+        return Math.round(avg * 10.0) / 10.0;
+    }
+
+    private double computeAvgWithOverride(List<Inscription> inscriptions,
+                                           Long inscriptionId,
+                                           double newProgression) {
+        if (inscriptions.isEmpty()) return 0.0;
+        double sum = inscriptions.stream()
+            .mapToDouble(i -> i.getId().equals(inscriptionId) ? newProgression : i.getProgression())
+            .sum();
+        double avg = sum / inscriptions.size();
+        return Math.round(avg * 10.0) / 10.0;
+    }
 
 
-private double computeAvgWithOverride(List<Inscription> inscriptions, 
-                                       Long inscriptionId, 
-                                       double newProgression) {
-    if (inscriptions.isEmpty()) return 0.0;
-    double sum = inscriptions.stream()
-        .mapToDouble(i -> i.getId().equals(inscriptionId) ? newProgression : i.getProgression())
-        .sum();
-    double avg = sum / inscriptions.size();
-    return Math.round(avg * 10.0) / 10.0;
+    public List<Map<String, Object>> getEnrollmentTrends(Long formateurId) {
+
+    LocalDate since = LocalDate.now().minusDays(6);
+
+    List<Object[]> rawData = inscriptionRepository
+        .getEnrollmentTrends(formateurId, since);
+
+    Map<String, Long> map = new HashMap<>();
+
+    for (Object[] row : rawData) {
+        String day = row[0].toString(); // yyyy-MM-dd
+        Long count = ((Number) row[1]).longValue();
+        map.put(day, count);
+    }
+
+    List<Map<String, Object>> result = new ArrayList<>();
+
+    for (int i = 6; i >= 0; i--) {
+        LocalDate date = LocalDate.now().minusDays(i);
+
+        result.add(Map.of(
+            "day", date.getDayOfWeek().toString().substring(0, 3),
+            "count", map.getOrDefault(date.toString(), 0L)
+        ));
+    }
+
+    return result;
 }
 }

@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.example.SmartLearning.DTO.CourseDTO;
+import com.example.SmartLearning.DTO.TrainerStatsDTO;
 import com.example.SmartLearning.Enum.Level;
 import com.example.SmartLearning.Repository.CourseRepository;
 import com.example.SmartLearning.model.Course;
@@ -21,7 +22,6 @@ public class CourseService {
 
     @Autowired
     private FormateurService formateurService;
-    
 
     public CourseDTO createCourse(Long formateurId, CourseDTO courseDTO) {
         Formateur formateur = formateurService.getFormateurById(formateurId);
@@ -64,7 +64,6 @@ public class CourseService {
         Course course = courseRepository.findByIdAndFormateur(courseId, formateur)
                 .orElseThrow(() -> new SecurityException("You don't have permission to update this course"));
 
-
         course.setTitle(courseDTO.getTitle());
         course.setDescription(courseDTO.getDescription());
         course.setCategory(courseDTO.getCategory());
@@ -90,8 +89,32 @@ public class CourseService {
         return mapToDTO(course);
     }
 
-    // ADMIN OPERATIONS 
+    // ✅ NEW: Trainer stats
+    public TrainerStatsDTO getTrainerStats(Long formateurId) {
+        Formateur formateur = formateurService.getFormateurById(formateurId);
+        List<Course> courses = courseRepository.findByFormateur(formateur);
 
+        int totalCourses    = courses.size();
+        int activeCourses   = (int) courses.stream().filter(c -> Boolean.TRUE.equals(c.getIsActive())).count();
+        int freeCourses     = (int) courses.stream().filter(c -> c.getPrice() == 0).count();
+        int paidCourses     = (int) courses.stream().filter(c -> c.getPrice() > 0).count();
+
+        long totalEnrollments = courseRepository.countEnrollmentsByFormateurId(formateurId);
+        long totalCompletions = courseRepository.countCompletionsByFormateurId(formateurId);
+        double avgProgress    = courseRepository.avgProgressByFormateurId(formateurId);
+
+        return TrainerStatsDTO.builder()
+                .totalCourses(totalCourses)
+                .activeCourses(activeCourses)
+                .freeCourses(freeCourses)
+                .paidCourses(paidCourses)
+                .totalEnrollments((int) totalEnrollments)
+                .totalCompletions((int) totalCompletions)
+                .avgProgressPercent(Math.round(avgProgress * 10.0) / 10.0)
+                .build();
+    }
+
+    // ADMIN OPERATIONS
     public List<CourseDTO> getAllCoursesForAdmin() {
         return courseRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
@@ -151,8 +174,7 @@ public class CourseService {
                 .category(course.getCategory())
                 .price(course.getPrice())
                 .level(course.getLevel())
-                // FIX IS HERE: Removed .getUser()
-                .formateurName(course.getFormateur().getUsername()) 
+                .formateurName(course.getFormateur().getUsername())
                 .imageUrl(course.getImageUrl())
                 .isActive(course.getIsActive())
                 .formateurId(course.getFormateur().getId())
@@ -167,6 +189,4 @@ public class CourseService {
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
-
-    
 }
