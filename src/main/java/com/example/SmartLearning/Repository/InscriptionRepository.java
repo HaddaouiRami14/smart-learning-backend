@@ -85,6 +85,21 @@ List<Inscription> findEnrolledCoursesByApprenant(@Param("apprenantId") Long appr
         @Param("apprenantId") Long apprenantId,
         @Param("courseIds")   List<Long> courseIds
     );
-
+ 
+    @Query("""
+    SELECT 
+        FUNCTION('DATE', i.dateInscription) AS day,
+        COUNT(i) AS count
+    FROM Inscription i
+    JOIN i.course c
+    WHERE c.formateur.id = :formateurId
+      AND i.dateInscription >= :since
+    GROUP BY FUNCTION('DATE', i.dateInscription)
+    ORDER BY FUNCTION('DATE', i.dateInscription)
+""")
+List<Object[]> getEnrollmentTrends(
+    @Param("formateurId") Long formateurId,
+    @Param("since") LocalDate since
+);
 
 }
