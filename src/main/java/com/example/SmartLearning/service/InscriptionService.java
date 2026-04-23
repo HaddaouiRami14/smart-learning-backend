@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.SmartLearning.DTO.InscriptionDTO;
 import com.example.SmartLearning.DTO.ProgressDetailDTO;
+import com.example.SmartLearning.DTO.StudentProgressDTO;
 import com.example.SmartLearning.Repository.ApprenantRepository;
 import com.example.SmartLearning.Repository.ChapterRepository;
 import com.example.SmartLearning.Repository.CourseRepository;
@@ -34,7 +35,7 @@ public class InscriptionService {
     @Autowired private QuizRepository quizRepository;
     @Autowired private ExerciseRepository exerciseRepository;
     @Autowired private ActivityService activityService;
-    @Autowired private BadgeService badgeService; // ✅ NEW
+    @Autowired private BadgeService badgeService; 
 
     private Long getApprenantId(Long userId) {
         Apprenant apprenant = apprenantRepository.findById(userId)
@@ -65,7 +66,7 @@ public class InscriptionService {
 
         try {
             InscriptionDTO dto = mapToDTO(inscriptionRepository.save(newInscription));
-            // ✅ Award FIRST_STEP badge on first enrollment
+            
             try {
                 badgeService.checkAndAwardBadges(userId);
             } catch (Exception e) {
@@ -124,9 +125,9 @@ public class InscriptionService {
 
         ProgressDetailDTO result = getProgressDetail(userId, courseId);
 
-        // ✅ Award badges after progress update
+        
         try {
-            // Check exercise badge if item is an exercise
+            
             if (item.endsWith(":E")) {
                 try {
                     Long chapterId = Long.parseLong(item.replace(":E", ""));
@@ -135,7 +136,7 @@ public class InscriptionService {
                     badgeService.onExercisePassed(userId, null);
                 }
             }
-            // Check all other badges (COURSE_COMPLETE, SCHOLAR, EXPLORER, PERFECTIONIST)
+            
             badgeService.checkAndAwardBadges(userId);
         } catch (Exception e) {
             System.err.println("Badge awarding failed on markItemCompleted: " + e.getMessage());
@@ -315,5 +316,46 @@ public class InscriptionService {
     }
 
     return result;
+}
+
+public List<StudentProgressDTO> getStudentsByFormateur(Long formateurId) {
+    List<Inscription> inscriptions = inscriptionRepository
+        .findByCoursFormateurId(formateurId); 
+
+    return inscriptions.stream()
+        .collect(Collectors.groupingBy(i -> i.getApprenant()))
+        .entrySet().stream()
+        .map(entry -> {
+            Apprenant apprenant = entry.getKey();
+            List<Inscription> appInscriptions = entry.getValue();
+            double avg = appInscriptions.stream()
+                .mapToDouble(Inscription::getProgression)
+                .average().orElse(0.0);
+            String lastActive = appInscriptions.stream()
+                .map(i -> i.getDateInscription().toString())
+                .max(Comparator.naturalOrder()).orElse("");
+            return StudentProgressDTO.builder()
+                .id(apprenant.getId())
+                .username(apprenant.getUsername())
+                .email(apprenant.getEmail())
+                .avatarUrl(null)
+                .enrolledCourses(appInscriptions.size())
+                .avgProgress(Math.round(avg * 10.0) / 10.0)
+                .lastActive(lastActive)
+                .build();
+        })
+        .collect(Collectors.toList());
+}
+
+public List<Object[]> getInscriptionByCourse() {
+    return inscriptionRepository.countInscriptionsByCourse();
+}
+
+public Long getInscription() {
+    return inscriptionRepository.countInscriptions();
+}
+
+public Long getCompletedInscriptions() {
+    return inscriptionRepository.countCompletedInscriptions();
 }
 }

@@ -23,7 +23,7 @@ public class BadgeService {
     private final ApprenantRepository apprenantRepository;
     private final ExerciseRepository exerciseRepository;
 
-    // ─── Initialize all badges on startup ─────────────────────────────────────
+    
     @PostConstruct
     @Transactional
     public void initBadges() {
@@ -45,7 +45,7 @@ public class BadgeService {
         }
     }
 
-    // ─── Check and award all general badges ───────────────────────────────────
+    
     @Transactional
     public void checkAndAwardBadges(Long apprenantId) {
         Apprenant apprenant = findApprenant(apprenantId);
@@ -75,34 +75,34 @@ public class BadgeService {
         long totalExercisesPassed = countExercisesPassed(inscriptions);
         if (totalExercisesPassed >= 10) award(apprenant, "BUG_CRUSHER");
 
-        // POLYGLOT — ✅ NEW: check languages of completed exercises
+        
         checkPolyglot(apprenant, inscriptions);
     }
 
-    // ─── Called when a quiz is submitted ──────────────────────────────────────
+    
     @Transactional
     public void onQuizPassed(Long apprenantId, int score) {
         Apprenant apprenant = findApprenant(apprenantId);
         if (score == 100) award(apprenant, "QUIZ_MASTER");
     }
 
-    // ─── Called when an exercise is passed ────────────────────────────────────
+    
     @Transactional
     public void onExercisePassed(Long apprenantId, Long exerciseId) {
         Apprenant apprenant = findApprenant(apprenantId);
         List<Inscription> inscriptions = inscriptionRepository.findByApprenantId(apprenantId);
 
-        // ✅ FIXED: count exercises AFTER the new one is already saved
+        
         long totalExercisesPassed = countExercisesPassed(inscriptions);
         if (totalExercisesPassed >= 10) award(apprenant, "BUG_CRUSHER");
 
-        // ✅ POLYGLOT: check languages
+        
         checkPolyglot(apprenant, inscriptions);
     }
 
-    // ─── POLYGLOT logic ───────────────────────────────────────────────────────
+    
     private void checkPolyglot(Apprenant apprenant, List<Inscription> inscriptions) {
-        // Get all chapter IDs where exercise was passed
+        
         Set<Long> completedExerciseChapterIds = new HashSet<>();
         for (Inscription inscription : inscriptions) {
             if (inscription.getCompletedItems() == null || inscription.getCompletedItems().isEmpty()) continue;
@@ -134,7 +134,7 @@ public class BadgeService {
         if (languages.size() >= 2) award(apprenant, "POLYGLOT");
     }
 
-    // ─── Count total exercises passed from completedItems ─────────────────────
+    
     private long countExercisesPassed(List<Inscription> inscriptions) {
         return inscriptions.stream()
             .mapToLong(i -> {
@@ -146,7 +146,7 @@ public class BadgeService {
             }).sum();
     }
 
-    // ─── Award a badge if not already earned ──────────────────────────────────
+    
     private void award(Apprenant apprenant, String badgeCode) {
         if (apprenantBadgeRepository.existsByApprenantIdAndBadgeCode(apprenant.getId(), badgeCode)) return;
         Badge badge = badgeRepository.findByCode(badgeCode).orElse(null);
@@ -163,7 +163,7 @@ public class BadgeService {
             .orElseThrow(() -> new NoSuchElementException("Apprenant not found: " + apprenantId));
     }
 
-    // ─── Get achievements page data ────────────────────────────────────────────
+    
     @Transactional(readOnly = true)
     public AchievementsPageDTO getAchievements(Long apprenantId) {
         List<Inscription> inscriptions = inscriptionRepository.findByApprenantId(apprenantId);
@@ -185,6 +185,11 @@ public class BadgeService {
             }).sum();
 
         long exercisesSolved = countExercisesPassed(inscriptions);
+        
+        int newThisWeek = (int) earnedBadges.stream()
+        .filter(ab -> ab.getEarnedAt() != null &&
+                    ab.getEarnedAt().isAfter(LocalDateTime.now().minusDays(7)))
+        .count();
 
         StatsDTO stats = StatsDTO.builder()
             .coursesEnrolled(enrolled)
@@ -193,6 +198,7 @@ public class BadgeService {
             .exercisesSolved((int) exercisesSolved)
             .totalBadges(allBadges.size())
             .earnedBadges(earnedBadges.size())
+            .newThisWeek(newThisWeek) 
             .build();
 
         List<BadgeDTO> badges = allBadges.stream()

@@ -16,10 +16,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.SmartLearning.DTO.CourseDTO;
+import com.example.SmartLearning.DTO.StudentProgressDTO;
 import com.example.SmartLearning.DTO.TrainerStatsDTO;
 import com.example.SmartLearning.security.JwtUserPrincipal;
 import com.example.SmartLearning.service.CourseService;
@@ -61,7 +63,7 @@ public class FormateurCourseController {
         return ResponseEntity.ok(courses);
     }
 
-    // ✅ NEW: Trainer stats endpoint
+    
     @GetMapping("/stats")
     public ResponseEntity<TrainerStatsDTO> getTrainerStats() {
         Long trainerId = getTrainerId();
@@ -115,4 +117,15 @@ public ResponseEntity<List<Map<String, Object>>> getEnrollmentTrends() {
         inscriptionService.getEnrollmentTrends(trainerId)
     );
 }
+
+@GetMapping("/students")
+ public ResponseEntity<List<StudentProgressDTO>> getMyStudents(
+        @RequestHeader("Authorization") String authHeader) {
+    Long formateurId = getTrainerId();
+    return ResponseEntity.ok(inscriptionService.getStudentsByFormateur(formateurId));
+}
+@GetMapping("/studentss")
+    public List<Object[]> getInscriptionByCourse() {
+        return inscriptionService.getInscriptionByCourse();
+    }
 }

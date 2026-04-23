@@ -32,6 +32,7 @@ public class AchievementDTO {
         private int exercisesSolved;
         private int totalBadges;
         private int earnedBadges;
+        private int newThisWeek; // ← ajouter
     }
 
     @Data

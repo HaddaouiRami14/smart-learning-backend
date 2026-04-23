@@ -1,5 +1,6 @@
 package com.example.SmartLearning.controller;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -13,14 +14,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.SmartLearning.DTO.BanRequest;
 import com.example.SmartLearning.Enum.Role;
 import com.example.SmartLearning.Repository.BannedEmailRepository;
+import com.example.SmartLearning.Repository.InscriptionRepository;
 import com.example.SmartLearning.Repository.UserRepository;
 import com.example.SmartLearning.model.User;
 import com.example.SmartLearning.service.AdminService;
+import com.example.SmartLearning.service.InscriptionService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,6 +37,8 @@ public class UserManagementController {
     private final UserRepository userRepository;
     private final AdminService adminService; 
     private final BannedEmailRepository bannedEmailRepository; 
+    private final InscriptionService inscriptionService;
+    private final InscriptionRepository inscriptionRepository;
 
     @GetMapping
     public List<Map<String, Object>> getAllUsers() {
@@ -88,6 +94,32 @@ public class UserManagementController {
     public ResponseEntity<?> unbanUser(@PathVariable Long userId) {
         adminService.unbanUser(userId);
         return ResponseEntity.ok("User unbanned successfully");
+    }
+
+    @GetMapping("/students")
+    public List<Object[]> getInscriptionByCourse() {
+        return inscriptionService.getInscriptionByCourse();
+    }
+
+    @GetMapping("/inscriptions")
+    public Long getInscriptions() {
+        return inscriptionService.getInscription();
+    }
+
+    @GetMapping("/inscriptions/completed")
+    public Long getCompletedInscriptions() {
+        return inscriptionService.getCompletedInscriptions();
+    }
+    @GetMapping("/enrollment-trends")
+    public List<Object[]> getEnrollmentTrends(
+        @RequestParam(defaultValue = "30") int days
+    ) {
+        LocalDate since = LocalDate.now().minusDays(days);
+        return inscriptionRepository.getEnrollmentTrendsForAll(since);
+    }
+    @GetMapping("/inscription-counts")
+    public List<Object[]> getInscriptionCounts() {
+        return inscriptionService.getInscriptionByCourse();
     }
 
 }

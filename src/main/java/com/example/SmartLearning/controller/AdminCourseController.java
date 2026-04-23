@@ -2,6 +2,7 @@ package com.example.SmartLearning.controller;
 
 import java.util.List;
 
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +27,8 @@ public class AdminCourseController {
  
  @Autowired
  private CourseService courseService;
+
+
  
  @GetMapping
  public ResponseEntity<List<CourseDTO>> getAllCourses() {
@@ -62,4 +65,5 @@ public class AdminCourseController {
  CourseDTO updatedCourse = courseService.adminUpdateCourse(id, courseDTO);
  return ResponseEntity.ok(updatedCourse);
  }
+  
 }
