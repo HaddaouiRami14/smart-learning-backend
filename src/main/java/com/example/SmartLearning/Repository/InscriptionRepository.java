@@ -55,12 +55,12 @@ List<CategorySkillProjection> aggregateSkillsByCategory(@Param("apprenantId") Lo
 """)
 List<Inscription> findEnrolledCoursesByApprenant(@Param("apprenantId") Long apprenantId);
 
-// ── Nouvelles méthodes pour la recommandation ─────────────────────────────
+
  
     @Query("SELECT i.course.id FROM Inscription i WHERE i.apprenant.id = :apprenantId")
     List<Long> findCourseIdsByApprenantId(@Param("apprenantId") Long apprenantId);
  
-    // Trending : nb d'inscriptions par cours dans les 7 derniers jours
+    
     @Query("""
         SELECT i.course.id, COUNT(i)
         FROM Inscription i
@@ -101,5 +101,33 @@ List<Object[]> getEnrollmentTrends(
     @Param("formateurId") Long formateurId,
     @Param("since") LocalDate since
 );
+
+@Query("""
+    SELECT i FROM Inscription i
+    JOIN FETCH i.apprenant
+    JOIN FETCH i.course c
+    WHERE c.formateur.id = :formateurId
+""")
+List<Inscription> findByCoursFormateurId(@Param("formateurId") Long formateurId);
+
+@Query("SELECT i.course.id, COUNT(i) FROM Inscription i GROUP BY i.course.id")
+List<Object[]> countInscriptionsByCourse();
+
+@Query("SELECT COUNT(i) FROM Inscription i")
+Long countInscriptions();
+
+@Query("SELECT COUNT(i) FROM Inscription i WHERE i.progression = 100.0")
+Long countCompletedInscriptions();
+
+@Query("""
+    SELECT
+        FUNCTION('DATE', i.dateInscription) AS day,
+        COUNT(i) AS count
+    FROM Inscription i
+    WHERE i.dateInscription >= :since
+    GROUP BY FUNCTION('DATE', i.dateInscription)
+    ORDER BY FUNCTION('DATE', i.dateInscription)
+""")
+List<Object[]> getEnrollmentTrendsForAll(@Param("since") LocalDate since);
 
 }

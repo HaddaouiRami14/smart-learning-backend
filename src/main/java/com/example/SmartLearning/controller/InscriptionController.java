@@ -10,6 +10,9 @@ import com.example.SmartLearning.service.InscriptionService;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 @RestController
 @RequestMapping("/api/learner/enrollments")
@@ -76,4 +79,6 @@ public class InscriptionController {
         return ResponseEntity.ok(Map.of("enrolled",
             inscriptionService.isEnrolled(userId, courseId)));
     }
+   
+    
 }

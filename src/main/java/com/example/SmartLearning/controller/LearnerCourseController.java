@@ -164,4 +164,8 @@ public class LearnerCourseController {
     JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
     return ResponseEntity.ok(skillsProgressService.getEnrolledCourses(principal.getId()));
 }
+@GetMapping("/students")
+    public List<Object[]> getInscriptionByCourse() {
+        return inscriptionService.getInscriptionByCourse();
+    }
 }

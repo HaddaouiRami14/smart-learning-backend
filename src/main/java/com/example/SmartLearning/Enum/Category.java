@@ -18,7 +18,7 @@ public enum Category {
             case Design       -> "Design";
             case Business     -> "Business";
             case Marketing    -> "Marketing";
-            case DataScience  -> "Data Science";
+            case DataScience  -> "DataScience";
             case Language     -> "Language";
             case Music        -> "Music";
             case Photography  -> "Photography";

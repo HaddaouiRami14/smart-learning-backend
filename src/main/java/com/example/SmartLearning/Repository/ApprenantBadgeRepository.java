@@ -13,7 +13,7 @@ public interface ApprenantBadgeRepository extends JpaRepository<ApprenantBadge, 
 
     boolean existsByApprenantIdAndBadgeCode(Long apprenantId, String badgeCode);
 
-    // For leaderboard — count badges per apprenant
+    
     @Query("""
         SELECT ab.apprenant.id, COUNT(ab)
         FROM ApprenantBadge ab
