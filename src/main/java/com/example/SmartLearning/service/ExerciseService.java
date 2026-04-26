@@ -141,8 +141,7 @@ public class ExerciseService {
             try {
                 String resultJson = jDoodleService.executeCode(
                     exercise.getLanguage(),
-                    ///request.getCode(),
-                    wrapCode(exercise.getLanguage(), request.getCode(), testCase.getInput()),
+                    request.getCode(),
                     testCase.getInput()
                 );
 
@@ -248,16 +247,5 @@ public class ExerciseService {
             .bestScore(null)
             .build();
     }
-    private String wrapCode(ProgrammingLanguage language, String userCode, String input) {
-    switch (language) {
-        case PYTHON:
-            return userCode + "\nn = int(input())\nprint(solution(n))";
-        case JAVASCRIPT:
-            return userCode + "\nconst lines = require('fs').readFileSync('/dev/stdin','utf8').trim().split('\\n');\nconsole.log(solution(parseInt(lines[0])));";
-        case JAVA:
-            return userCode; 
-        default:
-            return userCode;
-    }
-}
+   
 }
