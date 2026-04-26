@@ -25,6 +25,9 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
       AND a.type = :type
       AND CAST(a.createdAt AS date) = CURRENT_DATE
     """)
-    boolean existsTodayByType(@Param("apprenantId") Long apprenantId,
-                            @Param("type") ActivityType type);
+    boolean existsTodayByType(@Param("apprenantId") Long apprenantId,@Param("type") ActivityType type);
+
+    void deleteByCourseId(Long courseId);
+
+          
 }

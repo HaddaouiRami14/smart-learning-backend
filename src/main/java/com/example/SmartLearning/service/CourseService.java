@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.example.SmartLearning.DTO.CourseDTO;
 import com.example.SmartLearning.DTO.TrainerStatsDTO;
 import com.example.SmartLearning.Enum.Level;
+import com.example.SmartLearning.Repository.ActivityLogRepository;
 import com.example.SmartLearning.Repository.CourseRepository;
 import com.example.SmartLearning.model.Course;
 import com.example.SmartLearning.model.Formateur;
@@ -22,6 +23,9 @@ public class CourseService {
 
     @Autowired
     private FormateurService formateurService;
+
+    @Autowired
+    private ActivityLogRepository activityLogRepository;
 
     public CourseDTO createCourse(Long formateurId, CourseDTO courseDTO) {
         Formateur formateur = formateurService.getFormateurById(formateurId);
@@ -163,6 +167,7 @@ public class CourseService {
     }
 
     private void deleteCourseWithDependencies(Course course) {
+        activityLogRepository.deleteByCourseId(course.getId());
         courseRepository.deleteById(course.getId());
     }
 

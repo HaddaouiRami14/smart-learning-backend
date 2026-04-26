@@ -145,98 +145,112 @@ public class InscriptionService {
         return result;
     }
 
-    public ProgressDetailDTO getProgressDetail(Long userId, Long courseId) {
-        Long apprenantId = getApprenantId(userId);
+   public ProgressDetailDTO getProgressDetail(Long userId, Long courseId) {
+    Long apprenantId = getApprenantId(userId);
 
-        Inscription inscription = inscriptionRepository
-            .findByApprenantIdAndCourseId(apprenantId, courseId)
-            .orElse(null);
+    Inscription inscription = inscriptionRepository
+        .findByApprenantIdAndCourseId(apprenantId, courseId)
+        .orElse(null);
 
-        if (inscription == null) {
-            return null;
+    if (inscription == null) return null;
+
+    Set<String> completedItems = parseCompletedItems(inscription.getCompletedItems());
+    List<Chapter> chapters = chapterRepository.findByCourseIdOrderByOrderIndexAsc(courseId);
+
+    Map<Long, ProgressDetailDTO.ChapterProgressDTO> chapterProgress = new HashMap<>();
+    
+    
+    int totalItems = 0;
+    int completedItemsCount = 0;
+    int completedChaptersCount = 0; 
+
+    for (Chapter chapter : chapters) {
+        Optional<Quiz> quizOpt = quizRepository.findByChapterId(chapter.getId());
+        boolean hasQuiz = quizOpt.isPresent();
+
+        List<Exercise> exercises = exerciseRepository.findByChapterId(chapter.getId());
+        boolean hasExercise = !exercises.isEmpty();
+
+        boolean quizPassed = completedItems.contains(chapter.getId() + ":Q");
+        boolean exercisePassed = completedItems.contains(chapter.getId() + ":E");
+
+        
+        if (hasQuiz) {
+            totalItems++;
+            if (quizPassed) completedItemsCount++;
+        }
+        if (hasExercise) {
+            totalItems++;
+            if (exercisePassed) completedItemsCount++;
+        }
+        if (!hasQuiz && !hasExercise) {
+            
+            totalItems++;
+            completedItemsCount++;
         }
 
-        Set<String> completedItems = parseCompletedItems(inscription.getCompletedItems());
-        List<Chapter> chapters = chapterRepository.findByCourseIdOrderByOrderIndexAsc(courseId);
+        
+        boolean chapterComplete;
+        if (!hasQuiz && !hasExercise)       chapterComplete = true;
+        else if (hasQuiz && !hasExercise)   chapterComplete = quizPassed;
+        else if (!hasQuiz && hasExercise)   chapterComplete = exercisePassed;
+        else                                chapterComplete = quizPassed && exercisePassed;
 
-        Map<Long, ProgressDetailDTO.ChapterProgressDTO> chapterProgress = new HashMap<>();
-        int completedCount = 0;
+        if (chapterComplete) completedChaptersCount++;
 
-        for (Chapter chapter : chapters) {
-            Optional<Quiz> quizOpt = quizRepository.findByChapterId(chapter.getId());
-            boolean hasQuiz = quizOpt.isPresent();
-
-            List<Exercise> exercises = exerciseRepository.findByChapterId(chapter.getId());
-            boolean hasExercise = !exercises.isEmpty();
-
-            boolean quizPassed = completedItems.contains(chapter.getId() + ":Q");
-            boolean exercisePassed = completedItems.contains(chapter.getId() + ":E");
-
-            boolean chapterComplete;
-            if (!hasQuiz && !hasExercise) {
-                chapterComplete = true;
-            } else if (hasQuiz && !hasExercise) {
-                chapterComplete = quizPassed;
-            } else if (!hasQuiz && hasExercise) {
-                chapterComplete = exercisePassed;
-            } else {
-                chapterComplete = quizPassed && exercisePassed;
-            }
-
-            if (chapterComplete) completedCount++;
-
-            chapterProgress.put(chapter.getId(), ProgressDetailDTO.ChapterProgressDTO.builder()
-                .quizPassed(hasQuiz ? quizPassed : null)
-                .exercisePassed(hasExercise ? exercisePassed : null)
-                .completed(chapterComplete)
-                .build());
-        }
-
-        int totalChapters = chapters.size();
-        double progress = totalChapters > 0 ? (completedCount * 100.0 / totalChapters) : 0.0;
-
-        if (Math.abs(inscription.getProgression() - progress) > 0.1) {
-            double oldProgress = inscription.getProgression();
-
-            Apprenant apprenant = inscription.getApprenant();
-            Course    course    = inscription.getCourse();
-            String categoryLabel = course.getCategory().getLabel();
-
-            List<Inscription> categoryInscriptions = inscriptionRepository
-                .findByApprenantId(apprenant.getId())
-                .stream()
-                .filter(i -> i.getCourse().getCategory().getLabel().equals(categoryLabel))
-                .collect(Collectors.toList());
-
-            double oldCategoryProg = computeAvg(categoryInscriptions);
-            String oldLevel = resolveLevel(oldCategoryProg);
-
-            inscription.setProgression(Math.round(progress * 10.0) / 10.0);
-            inscriptionRepository.save(inscription);
-            inscriptionRepository.flush();
-
-            double newCategoryProg = computeAvgWithOverride(
-                categoryInscriptions,
-                inscription.getId(),
-                Math.round(progress * 10.0) / 10.0
-            );
-            String newLevel = resolveLevel(newCategoryProg);
-
-            if (progress >= 100.0 && oldProgress < 100.0) {
-                activityService.logCourseCompleted(apprenant, course);
-            }
-
-            if (!oldLevel.equals(newLevel)) {
-                activityService.logSkillLevelUp(apprenant, categoryLabel);
-            }
-        }
-
-        return ProgressDetailDTO.builder()
-            .progression(Math.round(progress * 10.0) / 10.0)
-            .completedItems(new ArrayList<>(completedItems))
-            .chapterProgress(chapterProgress)
-            .build();
+        chapterProgress.put(chapter.getId(), ProgressDetailDTO.ChapterProgressDTO.builder()
+            .quizPassed(hasQuiz ? quizPassed : null)
+            .exercisePassed(hasExercise ? exercisePassed : null)
+            .completed(chapterComplete)
+            .build());
     }
+
+    
+    double progress = totalItems > 0 
+        ? (completedItemsCount * 100.0 / totalItems) 
+        : 0.0;
+    progress = Math.round(progress * 10.0) / 10.0;
+
+    
+    if (Math.abs(inscription.getProgression() - progress) > 0.1) {
+        double oldProgress = inscription.getProgression();
+
+        Apprenant apprenant = inscription.getApprenant();
+        Course course = inscription.getCourse();
+        String categoryLabel = course.getCategory().getLabel();
+
+        List<Inscription> categoryInscriptions = inscriptionRepository
+            .findByApprenantId(apprenant.getId())
+            .stream()
+            .filter(i -> i.getCourse().getCategory().getLabel().equals(categoryLabel))
+            .collect(Collectors.toList());
+
+        double oldCategoryProg = computeAvg(categoryInscriptions);
+        String oldLevel = resolveLevel(oldCategoryProg);
+
+        inscription.setProgression(progress);
+        inscriptionRepository.save(inscription);
+        inscriptionRepository.flush();
+
+        double newCategoryProg = computeAvgWithOverride(
+            categoryInscriptions, inscription.getId(), progress
+        );
+        String newLevel = resolveLevel(newCategoryProg);
+
+        if (progress >= 100.0 && oldProgress < 100.0) {
+            activityService.logCourseCompleted(apprenant, course);
+        }
+        if (!oldLevel.equals(newLevel)) {
+            activityService.logSkillLevelUp(apprenant, categoryLabel);
+        }
+    }
+
+    return ProgressDetailDTO.builder()
+        .progression(progress)
+        .completedItems(new ArrayList<>(completedItems))
+        .chapterProgress(chapterProgress)
+        .build();
+}
 
     private Set<String> parseCompletedItems(String completedItems) {
         if (completedItems == null || completedItems.trim().isEmpty()) {
