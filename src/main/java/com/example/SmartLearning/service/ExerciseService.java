@@ -11,7 +11,6 @@ import com.example.SmartLearning.DTO.ExerciseResultResponse;
 import com.example.SmartLearning.DTO.SubmitExerciseRequest;
 import com.example.SmartLearning.DTO.TestCaseResponse;
 import com.example.SmartLearning.DTO.TestResultResponse;
-import com.example.SmartLearning.Enum.ProgrammingLanguage;
 import com.example.SmartLearning.Repository.ChapterRepository;
 import com.example.SmartLearning.Repository.ExerciseRepository;
 import com.example.SmartLearning.model.Chapter;
