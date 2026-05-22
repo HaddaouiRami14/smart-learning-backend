@@ -45,9 +45,11 @@ public class GoogleAuthService {
     @Autowired
     private ApprenantRepository apprenantRepository;
 
-     @Autowired private BannedEmailRepository bannedEmailRepository;
+    @Autowired 
+    private BannedEmailRepository bannedEmailRepository;
+
     
-     public LoginResponse authenticateGoogleUser(String idToken, Role requestedRole) {
+     public LoginResponse authenticateGoogleUser(String idToken, Role requestedRole ) {
         System.out.println("googleClientId : " + googleClientId); 
         System.out.println("idToken reçu dans service : " + idToken);
         try {
@@ -101,7 +103,7 @@ public class GoogleAuthService {
                 LoginHistory loginHistory = LoginHistory.builder()
                     .user(user)
                     .loginTime(LocalDateTime.now())
-                    .ipAddress("Google OAuth")
+                    .ipAddress("GoogleAuth")
                     .userAgent("Browser")
                     .build();
                 loginHistoryRepository.save(loginHistory);

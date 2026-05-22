@@ -114,11 +114,7 @@ public class SecurityConfig {
 
 
                         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
-                        response.sendRedirect("http://localhost:5173/oauth2/callback?token=" + token +
-                                "&userId=" + user.getId() +
-                                "&name=" + user.getUsername() +
-                                "&email=" + user.getEmail() +
-                                "&role=" + user.getRole());
+                        response.sendRedirect("http://localhost:5173/oauth2/callback?token=" + token);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -145,8 +141,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/api/auth/**","/api/oauth2/**", "/api/password/**", "/login/oauth2/**", "/oauth2/**","/api/courses/**").permitAll()
-                
+                .requestMatchers("/api/auth/google","/api/auth/register","/api/auth/login","/api/oauth2/**", "/api/password/**", "/login/oauth2/**", "/oauth2/**","/api/courses/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
