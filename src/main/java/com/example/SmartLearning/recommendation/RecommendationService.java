@@ -1,19 +1,23 @@
 package com.example.SmartLearning.recommendation;
-
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.SmartLearning.DTO.RecommendationsResponse;
 import com.example.SmartLearning.DTO.RecommendedCourseDto;
 import com.example.SmartLearning.Enum.Category;
+import com.example.SmartLearning.Repository.CourseRecommendationRepository;
 import com.example.SmartLearning.Repository.CourseRepository;
 import com.example.SmartLearning.Repository.ExerciseSubmissionRepository;
 import com.example.SmartLearning.Repository.InscriptionRepository;
+import com.example.SmartLearning.model.CourseRecommendation;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
  
 @Service
@@ -23,6 +27,8 @@ public class RecommendationService {
     private final CourseRepository             courseRepo;
     private final InscriptionRepository       inscriptionRepo;
     private final ExerciseSubmissionRepository submissionRepo; 
+    private final CourseRecommendationRepository recommendationRepo;
+    private final ApplicationContext              applicationContext;
 
     private static final int BADGE_THRESHOLD = 40; // score ≥ 60 → badge "Recommandé" (Note: votre code disait >= 60 dans le commentaire mais le seuil est à 40 ?)
 
@@ -41,8 +47,6 @@ public class RecommendationService {
                     .items(List.of()).nextCursor(null).total(0).build();
 
         var candidateIds = candidates.stream().map(c -> c.getId()).toList();
-
-        // 2. Calcul direct des scores (ancien Pattern Strategy)
         
         // Stratégie 1: PERFORMANCE_IMPROVEMENT (Poids 0.40)
         Map<Long, Integer> progressionScores = calculateProgressionScores(apprenantId, candidateIds);
@@ -64,7 +68,7 @@ public class RecommendationService {
             double weighted = 0;
             var    reasons  = new ArrayList<String>();
 
-            // Application manuelle des poids
+            
             int rawProg = progressionScores.getOrDefault(course.getId(), 0);
             weighted += rawProg * 0.40;
             if (rawProg >= 50) reasons.add("PERFORMANCE_IMPROVEMENT");
@@ -89,7 +93,7 @@ public class RecommendationService {
                     reasons
             );
         })
-        .filter(r -> r.score() > 0)
+        .filter(r -> r.score() >= 0)
         .sorted(Comparator.comparingInt(Ranked::score).reversed())
         .toList();
 
@@ -100,7 +104,7 @@ public class RecommendationService {
 
         var page = paginated.stream().limit(limit).toList();
 
-        // 5. Contexte UI enrichi
+        
         var weakCategories  = getWeakCategoryLabels(apprenantId);
         var untouchedCats   = getUntouchedCategoryLabels(apprenantId);
 
@@ -134,7 +138,6 @@ public class RecommendationService {
                 .build();
     }
 
-    // ─── Méthodes utilitaires publiques ────────────────────────────────
 
     @Transactional(readOnly = true)
     public boolean isCourseRecommended(Long apprenantId, Long courseId) {
@@ -144,23 +147,25 @@ public class RecommendationService {
                             && c.getScore() >= BADGE_THRESHOLD);
     }
 
-    @Transactional(readOnly = true)
+   @Transactional(readOnly = true)
     public Set<Long> getRecommendedCourseIds(Long apprenantId) {
+
         var result = recommend(apprenantId, 20, null);
-        var ids    = new HashSet<Long>();
+
+        var ids = new HashSet<Long>();
+
         for (var item : result.getItems()) {
             if (item.getScore() >= BADGE_THRESHOLD)
                 ids.add(item.getCourseId());
         }
+
         return ids;
     }
 
     @CacheEvict(value = "recommendations", allEntries = true)
     public void evictCache(Long apprenantId) {}
 
-    // ─── Implémentation directe des anciennes Stratégies (Méthodes privées) ─────
 
-    /** Logique de ProgressionStrategy */
     private Map<Long, Integer> calculateProgressionScores(Long apprenantId, List<Long> candidateIds) {
         var result = new HashMap<Long, Integer>();
         if (candidateIds.isEmpty()) return result;
@@ -185,12 +190,10 @@ public class RecommendationService {
         return result;
     }
 
-    /** Logique de ExerciseStrategy */
     private Map<Long, Integer> calculateExerciseScores(Long apprenantId, List<Long> candidateIds) {
         var result = new HashMap<Long, Integer>();
         if (candidateIds.isEmpty()) return result;
 
-        // 1. Score moyen en % par cours
         var rawScores   = submissionRepo.avgScorePercentPerCourse(apprenantId);
         var scorePerCourse = new HashMap<Long, Double>();
         for (var row : rawScores) {
@@ -199,7 +202,6 @@ public class RecommendationService {
             scorePerCourse.put(courseId, avg);
         }
 
-        // 2. Taux de réussite global
         Double globalRate = submissionRepo.globalSuccessRate(apprenantId);
         double fallback   = (globalRate != null) ? globalRate : 50.0;
 
@@ -207,7 +209,7 @@ public class RecommendationService {
             int score;
             if (scorePerCourse.containsKey(courseId)) {
                 double avg = scorePerCourse.get(courseId);
-                score = (int) Math.round(100 - avg); // Inversé : plus on échoue, plus c'est recommandé
+                score = (int) Math.round(100 - avg); 
             } else {
                 score = (int) Math.round(100 - fallback);
             }
@@ -216,7 +218,6 @@ public class RecommendationService {
         return result;
     }
 
-    /** Logique de TrendingStrategy */
     private Map<Long, Integer> calculateTrendingScores(List<Long> candidateIds) {
         var result = new HashMap<Long, Integer>();
         if (candidateIds.isEmpty()) return result;
@@ -248,7 +249,6 @@ public class RecommendationService {
         return result;
     }
 
-    /** Logique de CategoryGapStrategy */
     private Map<Long, Integer> calculateCategoryGapScores(Long apprenantId, List<Long> candidateIds) {
         var result = new HashMap<Long, Integer>();
         if (candidateIds.isEmpty()) return result;
@@ -264,7 +264,6 @@ public class RecommendationService {
         return result;
     }
 
-    // ─── Helpers pour le contexte UI (provenant des anciennes stratégies) ─────
 
     private List<String> getWeakCategoryLabels(Long apprenantId) {
         return inscriptionRepo.aggregateSkillsByCategory(apprenantId).stream()
@@ -295,5 +294,58 @@ public class RecommendationService {
         }
         return 999;
     }
+     private RecommendationService self() {
+        return applicationContext.getBean(RecommendationService.class);
+    }
+
+    @CacheEvict(value = "recommendations", allEntries = true)
+    @Transactional
+    public void refreshRecommendations(Long apprenantId) {
+
+        var response = self().recommend(apprenantId, 100, null);
+
+        if (response == null || response.getItems().isEmpty()) {
+            return;
+        }
+
+        recommendationRepo.deleteByApprenantId(apprenantId);
+
+        List<CourseRecommendation> entities =
+                response.getItems().stream()
+                        .map(item -> CourseRecommendation.builder()
+                                .apprenantId(apprenantId)
+                                .courseId(item.getCourseId())
+                                .score(item.getScore())
+                                .recommended(item.getScore() >= BADGE_THRESHOLD)
+                                .reasons(String.join(",", item.getReasons()))
+                                .calculatedAt(LocalDateTime.now())
+                                .build())
+                        .toList();
+
+        if (!entities.isEmpty()) {
+            recommendationRepo.saveAll(entities);
+        }
+}
+
+@Transactional(readOnly = true)
+public RecommendationsResponse getStoredRecommendations(Long apprenantId) {
+
+    var stored = recommendationRepo
+            .findByApprenantIdOrderByScoreDesc(apprenantId);
+
+    var items = stored.stream()
+            .map(r -> RecommendedCourseDto.builder()
+                    .courseId(r.getCourseId())
+                    .score(r.getScore())
+                    .isRecommended(r.getRecommended())
+                    .build())
+            .toList();
+
+    return RecommendationsResponse.builder()
+            .items(items)
+            .total(items.size())
+            .nextCursor(null)
+            .build();
+}
 }
 

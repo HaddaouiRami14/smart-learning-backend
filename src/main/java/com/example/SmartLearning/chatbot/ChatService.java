@@ -30,16 +30,13 @@ public class ChatService {
     
     public ChatResponse chat(ChatRequest request) {
  
-        // --- CHANGEMENT ICI : Récupérer l'ID depuis la connexion sécurisée ---
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Long apprenantId = null;
 
         if (authentication != null && authentication.getPrincipal() instanceof JwtUserPrincipal) {
             JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
-            // Assurez-vous que votre classe JwtUserPrincipal a une méthode getUserId() ou getId()
             apprenantId = principal.getId(); 
         } else {
-            // Fallback si l'auth n'est pas du type attendu (rare avec votre config)
             log.error("Impossible de récupérer l'ID de l'utilisateur connecté");
             return buildErrorResponse("Erreur d'authentification.");
         }
@@ -48,23 +45,21 @@ public class ChatService {
             log.error("L'ID de l'utilisateur est null après récupération");
             return buildErrorResponse("Utilisateur inconnu.");
         }
-         // ── 1. Données de l'algorithme pondéré ───────────────────────────────
         var recommendations = recommendationService.recommend(apprenantId, 5, null);
         var dashboard = skillsProgressService.getDashboard(apprenantId);
 
-        // ... Le reste de votre code reste identique ...
         
-        // ── 2. Construction du system prompt ─────────────────────────────────
+        // 2. Construction du system prompt 
         String systemPrompt = buildSystemPrompt(dashboard, recommendations);
 
-        // ── 3. Appel OpenRouter ───────────────────────────────────────────────
+        // 3. Appel OpenRouter 
         String llmReply = openRouterClient.chat(systemPrompt, request.getMessage());
 
         if (llmReply == null) {
             return buildFallbackResponse(recommendations);
         }
 
-        // ── 4. Construit la réponse finale ────────────────────────────────────
+        // 4. Construit la réponse finale 
         var courseCards = mapToCourseCards(recommendations.getItems(), llmReply);
 
         return ChatResponse.builder()
@@ -73,9 +68,7 @@ public class ChatService {
                 .build();
     }
 
- 
-    // ─── System prompt ────────────────────────────────────────────────────────
- 
+  
     private String buildSystemPrompt(
             com.example.SmartLearning.DTO.SkillProgressDTO.SkillsDashboardDTO dashboard,
             RecommendationsResponse recommendations
@@ -129,7 +122,6 @@ public class ChatService {
         return sb.toString();
     }
  
-    // ─── Mapping réponse LLM → CourseCards ───────────────────────────────────
  
     private List<ChatResponse.CourseCard> mapToCourseCards(
             List<RecommendedCourseDto> algoResults,
@@ -137,10 +129,8 @@ public class ChatService {
     ) {
         var cards = new ArrayList<ChatResponse.CourseCard>();
  
-        // Cherche quels cours de l'algo sont mentionnés dans la réponse du LLM
         for (var course : algoResults) {
             if (llmReply.contains(course.getTitle())) {
-                // Extrait la phrase qui suit le titre comme "reason"
                 String reason = extractSentenceAfter(llmReply, course.getTitle());
                 cards.add(ChatResponse.CourseCard.builder()
                         .courseId(course.getCourseId())
@@ -152,7 +142,6 @@ public class ChatService {
             }
         }
  
-        // Si le LLM n'a cité aucun cours reconnu → on inclut le top 3 de l'algo
         if (cards.isEmpty()) {
             algoResults.stream().limit(3).forEach(c ->
                 cards.add(ChatResponse.CourseCard.builder()
@@ -168,7 +157,6 @@ public class ChatService {
         return cards;
     }
  
-    // ─── Fallback sans API ────────────────────────────────────────────────────
  
     private ChatResponse buildFallbackResponse(RecommendationsResponse reco) {
         var cards = reco.getItems().stream().limit(3).map(c ->
@@ -187,7 +175,6 @@ public class ChatService {
                 .build();
     }
  
-    // ─── Utilitaires ──────────────────────────────────────────────────────────
  
     private String truncate(String text, int max) {
         return text.length() <= max ? text : text.substring(0, max) + "...";
