@@ -11,5 +11,6 @@ public interface ApprenantRepository extends JpaRepository<Apprenant, Long> {
     // Changed from existsByUserUsername to existsByUsername
     boolean existsByUsername(String username);
 
-    // Deleted findByUser_Id because JpaRepository already provides findById(Long id)!
+
+    Optional<Apprenant> findByEmail(String email);
 }

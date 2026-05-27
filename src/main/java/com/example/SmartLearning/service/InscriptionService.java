@@ -19,6 +19,7 @@ import com.example.SmartLearning.model.Course;
 import com.example.SmartLearning.model.Exercise;
 import com.example.SmartLearning.model.Inscription;
 import com.example.SmartLearning.model.Quiz;
+import com.example.SmartLearning.recommendation.RecommendationService;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -36,6 +37,7 @@ public class InscriptionService {
     @Autowired private ExerciseRepository exerciseRepository;
     @Autowired private ActivityService activityService;
     @Autowired private BadgeService badgeService; 
+    @Autowired private RecommendationService recommendationService;
 
     private Long getApprenantId(Long userId) {
         Apprenant apprenant = apprenantRepository.findById(userId)
@@ -66,6 +68,7 @@ public class InscriptionService {
 
         try {
             InscriptionDTO dto = mapToDTO(inscriptionRepository.save(newInscription));
+            recommendationService.refreshRecommendations(apprenantId);
             
             try {
                 badgeService.checkAndAwardBadges(userId);
@@ -87,7 +90,12 @@ public class InscriptionService {
             .orElseThrow(() -> new RuntimeException("Inscription not found"));
 
         inscription.setProgression(Math.min(100.0, Math.max(0.0, progression)));
-        return mapToDTO(inscriptionRepository.save(inscription));
+        InscriptionDTO dto = mapToDTO(inscriptionRepository.save(inscription));
+
+        recommendationService.refreshRecommendations(apprenantId);
+
+        return dto;
+        
     }
 
     public List<InscriptionDTO> getLearnerEnrollments(Long userId) {
@@ -122,6 +130,7 @@ public class InscriptionService {
         items.add(item);
         inscription.setCompletedItems(String.join(",", items));
         inscriptionRepository.save(inscription);
+        recommendationService.refreshRecommendations(apprenantId);
 
         ProgressDetailDTO result = getProgressDetail(userId, courseId);
 
@@ -230,6 +239,7 @@ public class InscriptionService {
 
         inscription.setProgression(progress);
         inscriptionRepository.save(inscription);
+        recommendationService.refreshRecommendations(apprenantId);
         inscriptionRepository.flush();
 
         double newCategoryProg = computeAvgWithOverride(

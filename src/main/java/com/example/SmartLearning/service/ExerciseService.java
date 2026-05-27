@@ -2,6 +2,7 @@ package com.example.SmartLearning.service;
 
 import lombok.RequiredArgsConstructor;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.SmartLearning.DTO.CreateExerciseRequest;
@@ -11,11 +12,14 @@ import com.example.SmartLearning.DTO.ExerciseResultResponse;
 import com.example.SmartLearning.DTO.SubmitExerciseRequest;
 import com.example.SmartLearning.DTO.TestCaseResponse;
 import com.example.SmartLearning.DTO.TestResultResponse;
+import com.example.SmartLearning.Repository.ApprenantRepository;
 import com.example.SmartLearning.Repository.ChapterRepository;
 import com.example.SmartLearning.Repository.ExerciseRepository;
+import com.example.SmartLearning.model.Apprenant;
 import com.example.SmartLearning.model.Chapter;
 import com.example.SmartLearning.model.Exercise;
 import com.example.SmartLearning.model.TestCase;
+import com.example.SmartLearning.recommendation.RecommendationService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +32,8 @@ public class ExerciseService {
     private final ExerciseRepository exerciseRepository;
     private final ChapterRepository chapterRepository;
     private final JDoodleService jDoodleService;
+    private final RecommendationService recommendationService;
+    @Autowired private ApprenantRepository apprenantRepository;
 
 
     @Transactional
@@ -125,6 +131,10 @@ public class ExerciseService {
     
     @Transactional
     public ExerciseResultResponse submitExercise(Long exerciseId, String userEmail, SubmitExerciseRequest request) {
+        Apprenant apprenant = apprenantRepository.findByEmail(userEmail)
+            .orElseThrow(() -> new RuntimeException("Apprenant not found"));
+        Long apprenantId = apprenant.getId();
+        
         Exercise exercise = exerciseRepository.findById(exerciseId)
             .orElseThrow(() -> new RuntimeException("Exercise not found"));
 
@@ -205,6 +215,10 @@ public class ExerciseService {
         int totalTests = testCases.size();
         boolean passed = testsPassed == totalTests;
         int score = passed ? exercise.getPoints() : 0;
+
+        if (passed) {
+            recommendationService.refreshRecommendations(apprenantId);
+        }
 
         return ExerciseResultResponse.builder()
             .exerciseId(exercise.getId())
