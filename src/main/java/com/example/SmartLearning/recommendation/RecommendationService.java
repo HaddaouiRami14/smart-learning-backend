@@ -10,11 +10,16 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.SmartLearning.DTO.RecommendationsResponse;
 import com.example.SmartLearning.DTO.RecommendedCourseDto;
 import com.example.SmartLearning.Enum.Category;
+import com.example.SmartLearning.Repository.ApprenantRepository;
 import com.example.SmartLearning.Repository.CourseRecommendationRepository;
 import com.example.SmartLearning.Repository.CourseRepository;
 import com.example.SmartLearning.Repository.ExerciseSubmissionRepository;
 import com.example.SmartLearning.Repository.InscriptionRepository;
+import com.example.SmartLearning.model.Apprenant;
+import com.example.SmartLearning.model.Course;
 import com.example.SmartLearning.model.CourseRecommendation;
+
+import jakarta.persistence.EntityNotFoundException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,8 +34,9 @@ public class RecommendationService {
     private final ExerciseSubmissionRepository submissionRepo; 
     private final CourseRecommendationRepository recommendationRepo;
     private final ApplicationContext              applicationContext;
+    private final ApprenantRepository             apprenantRepo;
 
-    private static final int BADGE_THRESHOLD = 40; // score ≥ 60 → badge "Recommandé" (Note: votre code disait >= 60 dans le commentaire mais le seuil est à 40 ?)
+    private static final int BADGE_THRESHOLD = 40; // score ≥ 60 → badge "Recommandé" 
 
     @Cacheable(value = "recommendations", key = "#apprenantId + '-' + #limit + '-' + #cursor")
     @Transactional(readOnly = true)
@@ -141,7 +147,7 @@ public class RecommendationService {
 
     @Transactional(readOnly = true)
     public boolean isCourseRecommended(Long apprenantId, Long courseId) {
-        var result = recommend(apprenantId, 20, null);
+        var result = self().recommend(apprenantId, 20, null);
         return result.getItems().stream()
                 .anyMatch(c -> c.getCourseId().equals(courseId)
                             && c.getScore() >= BADGE_THRESHOLD);
@@ -150,7 +156,7 @@ public class RecommendationService {
    @Transactional(readOnly = true)
     public Set<Long> getRecommendedCourseIds(Long apprenantId) {
 
-        var result = recommend(apprenantId, 20, null);
+        var result = self().recommend(apprenantId, 20, null);
 
         var ids = new HashSet<Long>();
 
@@ -304,38 +310,47 @@ public class RecommendationService {
 
         var response = self().recommend(apprenantId, 100, null);
 
-        if (response == null || response.getItems().isEmpty()) {
-            return;
-        }
+        if (response == null || response.getItems().isEmpty()) {return;}
+         Apprenant apprenant = apprenantRepo.findById(apprenantId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Apprenant introuvable : " + apprenantId));
 
-        recommendationRepo.deleteByApprenantId(apprenantId);
+        recommendationRepo.deleteByApprenant(apprenant);
 
-        List<CourseRecommendation> entities =
-                response.getItems().stream()
-                        .map(item -> CourseRecommendation.builder()
-                                .apprenantId(apprenantId)
-                                .courseId(item.getCourseId())
-                                .score(item.getScore())
-                                .recommended(item.getScore() >= BADGE_THRESHOLD)
-                                .reasons(String.join(",", item.getReasons()))
-                                .calculatedAt(LocalDateTime.now())
-                                .build())
-                        .toList();
+        List<CourseRecommendation> entities = response.getItems().stream()
+                .map(item -> {
+                    // ← Chargement du Course requis par la relation @ManyToOne
+                    Course cours = courseRepo.findById(item.getCourseId())
+                            .orElseThrow(() -> new EntityNotFoundException(
+                                    "Course introuvable : " + item.getCourseId()));
 
-        if (!entities.isEmpty()) {
-            recommendationRepo.saveAll(entities);
-        }
+                    return CourseRecommendation.builder()
+                            .apprenant(apprenant)                          // ← entité, pas Long
+                            .cours(cours)                                  // ← entité, pas Long
+                            .score(item.getScore())
+                            .recommended(item.getScore() >= BADGE_THRESHOLD)
+                            .reasons(String.join(",", item.getReasons()))
+                            .calculatedAt(LocalDateTime.now())
+                            .build();
+                })
+                .toList();
+
+        recommendationRepo.saveAll(entities);
 }
 
 @Transactional(readOnly = true)
 public RecommendationsResponse getStoredRecommendations(Long apprenantId) {
 
+    Apprenant apprenant = apprenantRepo.findById(apprenantId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Apprenant introuvable : " + apprenantId));
+
     var stored = recommendationRepo
-            .findByApprenantIdOrderByScoreDesc(apprenantId);
+            .findByApprenantOrderByScoreDesc(apprenant);
 
     var items = stored.stream()
             .map(r -> RecommendedCourseDto.builder()
-                    .courseId(r.getCourseId())
+                    .courseId(r.getCours().getId())
                     .score(r.getScore())
                     .isRecommended(r.getRecommended())
                     .build())

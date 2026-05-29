@@ -11,10 +11,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import com.example.SmartLearning.DTO.RecommendationsResponse;
 import com.example.SmartLearning.recommendation.RecommendationService;
 import com.example.SmartLearning.security.JwtUserPrincipal;
-
 import org.springframework.security.core.Authentication;
-import java.util.Set;
- 
+import java.util.Set; 
 @RestController
 @RequestMapping("/api/recommendations")
 @RequiredArgsConstructor
