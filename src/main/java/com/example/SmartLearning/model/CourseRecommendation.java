@@ -20,9 +20,13 @@ public class CourseRecommendation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long apprenantId;
+    @ManyToOne
+    @JoinColumn(name = "apprenant_id")
+    private Apprenant apprenant;
 
-    private Long courseId;
+    @ManyToOne
+    @JoinColumn(name = "cours_id")
+    private Course cours;
 
     private Integer score;
 
