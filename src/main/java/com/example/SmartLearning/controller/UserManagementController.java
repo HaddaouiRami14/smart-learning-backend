@@ -20,11 +20,15 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.SmartLearning.DTO.BanRequest;
 import com.example.SmartLearning.Enum.Role;
 import com.example.SmartLearning.Repository.BannedEmailRepository;
+import com.example.SmartLearning.Repository.CourseRepository;
 import com.example.SmartLearning.Repository.InscriptionRepository;
+import com.example.SmartLearning.Repository.StatsApprenantRepository;
+import com.example.SmartLearning.Repository.StatsCoursRepository;
 import com.example.SmartLearning.Repository.UserRepository;
 import com.example.SmartLearning.model.User;
 import com.example.SmartLearning.service.AdminService;
 import com.example.SmartLearning.service.InscriptionService;
+import com.example.SmartLearning.service.StatsComputationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -39,6 +43,10 @@ public class UserManagementController {
     private final BannedEmailRepository bannedEmailRepository; 
     private final InscriptionService inscriptionService;
     private final InscriptionRepository inscriptionRepository;
+    private final CourseRepository courseRepository;
+    private final StatsCoursRepository statsCoursRepository;
+    private final StatsApprenantRepository statsApprenantRepository;
+    private final StatsComputationService statsComputationService;
 
     @GetMapping
     public List<Map<String, Object>> getAllUsers() {
@@ -98,17 +106,29 @@ public class UserManagementController {
 
     @GetMapping("/students")
     public List<Object[]> getInscriptionByCourse() {
-        return inscriptionService.getInscriptionByCourse();
+        // Read from pre-computed StatsCours table — returns [courseId, count] for the course management table
+        return statsCoursRepository.listInscriptionCountsByCourseId();
     }
 
     @GetMapping("/inscriptions")
     public Long getInscriptions() {
-        return inscriptionService.getInscription();
+        Long fromStats = statsCoursRepository.sumTotalInscriptions();
+        // Fall back to live count when StatsCours is empty or stale (all rows show 0)
+        if (fromStats == null || fromStats == 0L) {
+            return inscriptionRepository.countInscriptions();
+        }
+        return fromStats;
     }
 
     @GetMapping("/inscriptions/completed")
     public Long getCompletedInscriptions() {
-        return inscriptionService.getCompletedInscriptions();
+        Long totalStats = statsCoursRepository.sumTotalInscriptions();
+        // Fall back to live query when StatsCours has no meaningful data yet
+        if (totalStats == null || totalStats == 0L) {
+            return inscriptionRepository.countCompletedInscriptions();
+        }
+        Double raw = statsCoursRepository.sumTotalCompletionsRaw();
+        return raw == null ? 0L : Math.round(raw);
     }
     @GetMapping("/enrollment-trends")
     public List<Object[]> getEnrollmentTrends(
@@ -119,7 +139,34 @@ public class UserManagementController {
     }
     @GetMapping("/inscription-counts")
     public List<Object[]> getInscriptionCounts() {
-        return inscriptionService.getInscriptionByCourse();
+        // Read per-course enrollment counts from pre-computed StatsCours table
+        return statsCoursRepository.listInscriptionCountsByCourse();
+    }
+
+    /**
+     * Lightweight overview stats from pre-computed tables — replaces the heavy
+     * /api/admin/courses full-load just to count courses.
+     */
+    @GetMapping("/stats/overview")
+    public Map<String, Object> getStatsOverview() {
+        Long totalCourses      = courseRepository.count();
+        Long publishedCourses  = courseRepository.countByIsActive(true);
+        Long totalEnrollments  = statsCoursRepository.sumTotalInscriptions();
+        Double completionsRaw  = statsCoursRepository.sumTotalCompletionsRaw();
+        Long totalLearners     = statsApprenantRepository.countApprenants();
+
+        // Fall back to live counts when stats tables are empty
+        if (totalEnrollments == null || totalEnrollments == 0L) {
+            totalEnrollments = inscriptionRepository.countInscriptions();
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalCourses",         totalCourses  == null ? 0L : totalCourses);
+        result.put("publishedCourses",     publishedCourses == null ? 0L : publishedCourses);
+        result.put("totalEnrollments",     totalEnrollments);
+        result.put("completedEnrollments", completionsRaw == null ? 0L : Math.round(completionsRaw));
+        result.put("totalLearners",        totalLearners == null ? 0L : totalLearners);
+        return result;
     }
 
 }

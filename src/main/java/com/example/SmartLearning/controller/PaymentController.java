@@ -24,7 +24,16 @@ public class PaymentController {
         try {
             Stripe.apiKey = stripeSecretKey;
 
-            Long amount = Long.valueOf(data.get("amount").toString());
+            Object amountObj = data.get("amount");
+            if (amountObj == null) {
+                throw new IllegalArgumentException("Amount is required");
+            }
+            Long amount;
+            if (amountObj instanceof Number) {
+                amount = ((Number) amountObj).longValue();
+            } else {
+                amount = Long.valueOf(amountObj.toString());
+            }
 
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(amount)
@@ -44,7 +53,11 @@ public class PaymentController {
 
         } catch (StripeException e) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put("error", "Stripe error: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Internal error: " + e.getMessage());
             return ResponseEntity.status(500).body(error);
         }
     }

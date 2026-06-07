@@ -13,6 +13,7 @@ import java.util.List;
 public interface InscriptionRepository extends JpaRepository<Inscription, Long> {
     Optional<Inscription> findByApprenantIdAndCourseId(Long apprenantId, Long courseId);
     List<Inscription> findByApprenantId(Long apprenantId);
+    List<Inscription> findByCourseId(Long courseId);
     boolean existsByApprenantIdAndCourseId(Long apprenantId, Long courseId);
 
     
@@ -109,6 +110,34 @@ List<Object[]> getEnrollmentTrends(
     WHERE c.formateur.id = :formateurId
 """)
 List<Inscription> findByCoursFormateurId(@Param("formateurId") Long formateurId);
+
+@Query("""
+    SELECT COUNT(DISTINCT i.apprenant)
+    FROM Inscription i
+    WHERE i.course.formateur.id = :formateurId
+""")
+Long countDistinctStudentsByFormateurId(@Param("formateurId") Long formateurId);
+
+@Query("""
+    SELECT COUNT(i)
+    FROM Inscription i
+    WHERE i.course.formateur.id = :formateurId
+""")
+Long countEnrollmentsByFormateurId(@Param("formateurId") Long formateurId);
+
+@Query("""
+    SELECT COUNT(i)
+    FROM Inscription i
+    WHERE i.course.formateur.id = :formateurId AND i.progression = 100.0
+""")
+Long countCompletionsByFormateurId(@Param("formateurId") Long formateurId);
+
+@Query("""
+    SELECT AVG(i.progression)
+    FROM Inscription i
+    WHERE i.course.formateur.id = :formateurId
+""")
+Double getAverageProgressionByFormateurId(@Param("formateurId") Long formateurId);
 
 @Query("SELECT i.course.id, COUNT(i) FROM Inscription i GROUP BY i.course.id")
 List<Object[]> countInscriptionsByCourse();

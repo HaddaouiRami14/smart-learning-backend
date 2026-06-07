@@ -22,10 +22,15 @@ public class InscriptionController {
 
     // Enroll in a course
     @PostMapping("/{userId}/enroll/{courseId}")
-    public ResponseEntity<InscriptionDTO> enroll(
+    public ResponseEntity<?> enroll(
             @PathVariable Long userId,
             @PathVariable Long courseId) {
-        return ResponseEntity.ok(inscriptionService.enroll(userId, courseId));
+        try {
+            return ResponseEntity.ok(inscriptionService.enroll(userId, courseId));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getClass().getName() + ": " + e.getMessage()));
+        }
     }
 
     @PutMapping("/{userId}/progress/{courseId}")

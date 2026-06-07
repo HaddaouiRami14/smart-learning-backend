@@ -24,6 +24,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     Optional<Course> findByTitle(String title);
     List<Course> findByCategory(String category);
+     long countByFormateurAndIsActive(Formateur formateur, Boolean isActive);
 
     @Query("""
         SELECT c FROM Course c

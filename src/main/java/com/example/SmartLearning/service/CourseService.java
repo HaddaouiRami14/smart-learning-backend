@@ -10,8 +10,12 @@ import com.example.SmartLearning.DTO.TrainerStatsDTO;
 import com.example.SmartLearning.Enum.Level;
 import com.example.SmartLearning.Repository.ActivityLogRepository;
 import com.example.SmartLearning.Repository.CourseRepository;
+import com.example.SmartLearning.Repository.CourseRecommendationRepository;
+import com.example.SmartLearning.Repository.InscriptionRepository;
 import com.example.SmartLearning.model.Course;
 import com.example.SmartLearning.model.Formateur;
+import com.example.SmartLearning.Repository.StatsCoursRepository;
+import com.example.SmartLearning.model.StatsCours;
 import jakarta.transaction.Transactional;
 
 @Service
@@ -26,6 +30,15 @@ public class CourseService {
 
     @Autowired
     private ActivityLogRepository activityLogRepository;
+
+    @Autowired
+    private CourseRecommendationRepository courseRecommendationRepository;
+
+    @Autowired
+    private StatsCoursRepository statsCoursRepository;
+
+    @Autowired
+    private InscriptionRepository inscriptionRepository;
 
     public CourseDTO createCourse(Long formateurId, CourseDTO courseDTO) {
         Formateur formateur = formateurService.getFormateurById(formateurId);
@@ -83,6 +96,11 @@ public class CourseService {
         Formateur formateur = formateurService.getFormateurById(formateurId);
         Course course = courseRepository.findByIdAndFormateur(courseId, formateur)
                 .orElseThrow(() -> new SecurityException("You don't have permission to delete this course"));
+                
+        if (course.getIsActive() != null && course.getIsActive()) {
+            throw new IllegalStateException("Cannot delete an active course. Please deactivate it first.");
+        }
+        
         deleteCourseWithDependencies(course);
     }
 
@@ -96,25 +114,40 @@ public class CourseService {
     // ✅ NEW: Trainer stats
     public TrainerStatsDTO getTrainerStats(Long formateurId) {
         Formateur formateur = formateurService.getFormateurById(formateurId);
-        List<Course> courses = courseRepository.findByFormateur(formateur);
 
-        int totalCourses    = courses.size();
-        int activeCourses   = (int) courses.stream().filter(c -> Boolean.TRUE.equals(c.getIsActive())).count();
-        int freeCourses     = (int) courses.stream().filter(c -> c.getPrice() == 0).count();
-        int paidCourses     = (int) courses.stream().filter(c -> c.getPrice() > 0).count();
+        int totalCourses    = (int) courseRepository.countByFormateur(formateur);
+        int activeCourses   = (int) courseRepository.countByFormateurAndIsActive(formateur, true);
+        // Note: freeCourses and paidCourses are omitted as we don't need them right now 
+        // (but we can set them to 0 or leave them in the DTO for future use)
 
-        long totalEnrollments = courseRepository.countEnrollmentsByFormateurId(formateurId);
-        long totalCompletions = courseRepository.countCompletionsByFormateurId(formateurId);
-        double avgProgress    = courseRepository.avgProgressByFormateurId(formateurId);
+        Long distinctStudentsCount = inscriptionRepository.countDistinctStudentsByFormateurId(formateurId);
+        int totalStudents = distinctStudentsCount != null ? distinctStudentsCount.intValue() : 0;
+
+        List<StatsCours> statsList = statsCoursRepository.findByFormateurId(formateurId);
+
+        int totalEnrollments = 0;
+        int totalCompletions = 0;
+        double totalWeightedProgress = 0.0;
+
+        for (StatsCours stats : statsList) {
+            int count = stats.getNombreInscriptions();
+            totalEnrollments += count;
+            totalCompletions += (int) Math.round(stats.getTauxCompletionMoyen() * count / 100.0);
+            totalWeightedProgress += stats.getProgressionMoyenne() * count;
+        }
+
+        double avgProgressPercent = totalEnrollments == 0 ? 0.0 : (totalWeightedProgress / totalEnrollments);
+        avgProgressPercent = Math.round(avgProgressPercent * 10.0) / 10.0;
 
         return TrainerStatsDTO.builder()
                 .totalCourses(totalCourses)
                 .activeCourses(activeCourses)
-                .freeCourses(freeCourses)
-                .paidCourses(paidCourses)
-                .totalEnrollments((int) totalEnrollments)
-                .totalCompletions((int) totalCompletions)
-                .avgProgressPercent(Math.round(avgProgress * 10.0) / 10.0)
+                .totalStudents(totalStudents)
+                .freeCourses(0)
+                .paidCourses(0)
+                .totalEnrollments(totalEnrollments)
+                .totalCompletions(totalCompletions)
+                .avgProgressPercent(avgProgressPercent)
                 .build();
     }
 
@@ -167,7 +200,10 @@ public class CourseService {
     }
 
     private void deleteCourseWithDependencies(Course course) {
+        // Delete all FK-dependent rows before removing the course
         activityLogRepository.deleteByCourseId(course.getId());
+        courseRecommendationRepository.deleteByCoursId(course.getId()); // ← fixes FK violation
+        statsCoursRepository.deleteByCourseId(course.getId());
         courseRepository.deleteById(course.getId());
     }
 

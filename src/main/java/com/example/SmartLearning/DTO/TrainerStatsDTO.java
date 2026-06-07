@@ -13,6 +13,7 @@ public class TrainerStatsDTO {
     private int totalCourses;
     private int activeCourses;
     private int totalEnrollments;
+    private int totalStudents;
     private int totalCompletions;
     private int freeCourses;
     private int paidCourses;
