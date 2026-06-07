@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.SmartLearning.DTO.InscriptionDTO;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.example.SmartLearning.DTO.ProgressDetailDTO;
 import com.example.SmartLearning.DTO.StudentProgressDTO;
 import com.example.SmartLearning.Repository.ApprenantRepository;
@@ -38,11 +40,35 @@ public class InscriptionService {
     @Autowired private ActivityService activityService;
     @Autowired private BadgeService badgeService; 
     @Autowired private RecommendationService recommendationService;
+    @Autowired private com.example.SmartLearning.service.StatsComputationService statsComputationService;
 
     private Long getApprenantId(Long userId) {
         Apprenant apprenant = apprenantRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("Apprenant not found for user: " + userId));
         return apprenant.getId();
+    }
+
+    private void triggerAsyncStatsRecomputation(Long courseId, Long apprenantId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        statsComputationService.recomputeStatsCours(courseId);
+                        statsComputationService.recomputeStatsApprenant(apprenantId);
+                    } catch (Exception e) {
+                        System.err.println("Stats computation failed: " + e.getMessage());
+                    }
+                }
+            });
+        } else {
+            try {
+                statsComputationService.recomputeStatsCours(courseId);
+                statsComputationService.recomputeStatsApprenant(apprenantId);
+            } catch (Exception e) {
+                System.err.println("Stats computation failed: " + e.getMessage());
+            }
+        }
     }
 
     public InscriptionDTO enroll(Long userId, Long courseId) {
@@ -69,7 +95,10 @@ public class InscriptionService {
         try {
             InscriptionDTO dto = mapToDTO(inscriptionRepository.save(newInscription));
             recommendationService.refreshRecommendations(apprenantId);
-            
+
+            // Update pre-computed stats tables
+            triggerAsyncStatsRecomputation(courseId, apprenantId);
+
             try {
                 badgeService.checkAndAwardBadges(userId);
             } catch (Exception e) {
@@ -94,8 +123,10 @@ public class InscriptionService {
 
         recommendationService.refreshRecommendations(apprenantId);
 
+        // Update pre-computed stats tables
+        triggerAsyncStatsRecomputation(courseId, apprenantId);
+
         return dto;
-        
     }
 
     public List<InscriptionDTO> getLearnerEnrollments(Long userId) {
@@ -133,6 +164,9 @@ public class InscriptionService {
         recommendationService.refreshRecommendations(apprenantId);
 
         ProgressDetailDTO result = getProgressDetail(userId, courseId);
+
+        // Update pre-computed stats tables after progress is recalculated
+        triggerAsyncStatsRecomputation(courseId, apprenantId);
 
         
         try {
@@ -241,6 +275,9 @@ public class InscriptionService {
         inscriptionRepository.save(inscription);
         recommendationService.refreshRecommendations(apprenantId);
         inscriptionRepository.flush();
+
+        // ✅ NEW: Trigger stats recomputation so Formateur dashboard syncs with Learner view
+        triggerAsyncStatsRecomputation(courseId, apprenantId);
 
         double newCategoryProg = computeAvgWithOverride(
             categoryInscriptions, inscription.getId(), progress

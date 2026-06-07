@@ -18,4 +18,8 @@ public interface CourseRecommendationRepository extends JpaRepository<CourseReco
     @Modifying
     @Transactional
     void deleteByApprenant(Apprenant apprenant);
+
+    @Modifying
+    @Transactional
+    void deleteByCoursId(Long courseId);
 }
